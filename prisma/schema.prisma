@@ -407,21 +407,24 @@ model Payslip {
 // ─── LEAVE & ATTENDANCE ───────────────────────────────────────────────────────
 
 model LeaveType {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  name           String
-  nameAr         String?
-  isPaid         Boolean      @default(true)
-  defaultDays    Int          @default(0)
-  accrualRule    String?
-  carryOverDays  Int          @default(0)
-  isActive       Boolean      @default(true)
+  id              String        @id @default(cuid())
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  name            String
+  nameAr          String?
+  color           String?
+  isPaid          Boolean       @default(true)
+  defaultDays     Int           @default(0)
+  maxDaysPerYear  Int?
+  accrualRule     String?
+  carryOverDays   Int           @default(0)
+  isDefault       Boolean       @default(false)
+  isActive        Boolean       @default(true)
 
   balances       LeaveBalance[]
   requests       LeaveRequest[]
 
-  @@index([organizationId, isActive])
+  @@index([isActive])
 }
 
 model LeaveBalance {
