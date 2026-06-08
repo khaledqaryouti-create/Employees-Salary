@@ -78,7 +78,7 @@ model Organization {
   id            String   @id @default(cuid())
   name          String
   slug          String   @unique
-  country       String
+  country       String?
   currency      String   @default("USD")
   timezone      String   @default("UTC")
   payFrequency  String   @default("MONTHLY")
@@ -343,7 +343,7 @@ model PayrollRun {
   id             String           @id @default(cuid())
   organizationId String
   organization   Organization     @relation(fields: [organizationId], references: [id])
-  name           String
+  name           String?
   periodYear     Int
   periodMonth    Int
   country        String?
