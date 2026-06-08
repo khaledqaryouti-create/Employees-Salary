@@ -172,6 +172,69 @@ async function main() {
     console.log('ℹ️  Demo organization already exists — skipping')
   }
 
+  // ─── 4. Seed second demo organization (Morocco tech company) ───────────────
+  const moroccoSlug = 'demo-maroc-tech'
+  const existingMaroc = await prisma.organization.findUnique({ where: { slug: moroccoSlug } })
+
+  if (!existingMaroc) {
+    console.log('🏢 Creating Maroc Tech demo organization...')
+    const moroccoOrg = await prisma.organization.create({
+      data: { name: 'Maroc Tech SARL', slug: moroccoSlug, country: 'MA', currency: 'MAD', isActive: true },
+    })
+
+    const moroccoEmployees = [
+      { employeeNumber: 'MT-001', fullName: 'Youssef Benali', email: 'youssef@maroctech.demo', country: 'MA', employmentType: 'LOCAL' as const, basicSalary: 12000, currency: 'MAD', department: 'Engineering', jobTitle: 'Lead Developer', nationality: 'Moroccan', yearsOfService: 4 },
+      { employeeNumber: 'MT-002', fullName: 'Fatima Zahra Idrissi', email: 'fatima@maroctech.demo', country: 'MA', employmentType: 'LOCAL' as const, basicSalary: 9500, currency: 'MAD', department: 'Marketing', jobTitle: 'Marketing Manager', nationality: 'Moroccan', yearsOfService: 2 },
+      { employeeNumber: 'MT-003', fullName: 'Karim Tazi', email: 'karim@maroctech.demo', country: 'MA', employmentType: 'LOCAL' as const, basicSalary: 7500, currency: 'MAD', department: 'Support', jobTitle: 'Customer Success', nationality: 'Moroccan', yearsOfService: 1 },
+      { employeeNumber: 'MT-004', fullName: 'Amina Chraibi', email: 'amina@maroctech.demo', country: 'TN', employmentType: 'EXPATRIATE' as const, basicSalary: 8000, currency: 'MAD', department: 'Finance', jobTitle: 'Financial Analyst', nationality: 'Tunisian', yearsOfService: 3 },
+    ]
+
+    for (const emp of moroccoEmployees) {
+      const { basicSalary, currency, yearsOfService, ...fields } = emp
+      const joinDate = new Date()
+      joinDate.setFullYear(joinDate.getFullYear() - yearsOfService)
+      await prisma.employee.create({
+        data: { ...fields, organizationId: moroccoOrg.id, joinDate, isActive: true,
+          salaryStructure: { create: { basicSalary, currency } } },
+      })
+    }
+    console.log(`✅ Maroc Tech created with ${moroccoEmployees.length} employees`)
+  } else {
+    console.log('ℹ️  Maroc Tech already exists — skipping')
+  }
+
+  // ─── 5. Seed third demo organization (Philippines staffing) ────────────────
+  const phSlug = 'demo-ph-staffing'
+  const existingPH = await prisma.organization.findUnique({ where: { slug: phSlug } })
+
+  if (!existingPH) {
+    console.log('🏢 Creating PH Staffing demo organization...')
+    const phOrg = await prisma.organization.create({
+      data: { name: 'Pacific Staffing Corp', slug: phSlug, country: 'PH', currency: 'PHP', isActive: true },
+    })
+
+    const phEmployees = [
+      { employeeNumber: 'PS-001', fullName: 'Maria Santos', email: 'maria@pacific.demo', country: 'PH', employmentType: 'LOCAL' as const, basicSalary: 45000, currency: 'PHP', department: 'HR', jobTitle: 'HR Director', nationality: 'Filipino', yearsOfService: 6 },
+      { employeeNumber: 'PS-002', fullName: 'Jose Reyes', email: 'jose@pacific.demo', country: 'PH', employmentType: 'LOCAL' as const, basicSalary: 35000, currency: 'PHP', department: 'Operations', jobTitle: 'Operations Manager', nationality: 'Filipino', yearsOfService: 3 },
+      { employeeNumber: 'PS-003', fullName: 'Ana Gonzales', email: 'ana@pacific.demo', country: 'PH', employmentType: 'LOCAL' as const, basicSalary: 28000, currency: 'PHP', department: 'Accounting', jobTitle: 'Accountant', nationality: 'Filipino', yearsOfService: 2 },
+      { employeeNumber: 'PS-004', fullName: 'Carlo Ramos', email: 'carlo@pacific.demo', country: 'PH', employmentType: 'LOCAL' as const, basicSalary: 22000, currency: 'PHP', department: 'IT', jobTitle: 'IT Support', nationality: 'Filipino', yearsOfService: 1 },
+      { employeeNumber: 'PS-005', fullName: 'Grace Lim', email: 'grace@pacific.demo', country: 'PH', employmentType: 'LOCAL' as const, basicSalary: 30000, currency: 'PHP', department: 'Sales', jobTitle: 'Sales Executive', nationality: 'Filipino', yearsOfService: 4 },
+    ]
+
+    for (const emp of phEmployees) {
+      const { basicSalary, currency, yearsOfService, ...fields } = emp
+      const joinDate = new Date()
+      joinDate.setFullYear(joinDate.getFullYear() - yearsOfService)
+      await prisma.employee.create({
+        data: { ...fields, organizationId: phOrg.id, joinDate, isActive: true,
+          salaryStructure: { create: { basicSalary, currency } } },
+      })
+    }
+    console.log(`✅ Pacific Staffing Corp created with ${phEmployees.length} employees`)
+  } else {
+    console.log('ℹ️  Pacific Staffing Corp already exists — skipping')
+  }
+
   console.log('🎉 Seed complete!')
 }
 
