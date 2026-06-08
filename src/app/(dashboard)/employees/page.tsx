@@ -5,7 +5,7 @@ import { LinkButton } from '@/components/ui/link-button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Users, Plus, Search, Download } from 'lucide-react'
+import { Users, Plus, Download } from 'lucide-react'
 import { EmployeesTable } from './employees-table'
 
 export default async function EmployeesPage() {

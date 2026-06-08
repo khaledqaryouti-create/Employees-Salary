@@ -3,8 +3,8 @@ import { prisma } from '@/lib/prisma/client'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { FileText, Download } from 'lucide-react'
-import { formatCurrency, formatDate } from '@/lib/utils/format'
+import { FileText } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils/format'
 import { DownloadPayslipButton } from './download-payslip-button'
 
 const MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June',

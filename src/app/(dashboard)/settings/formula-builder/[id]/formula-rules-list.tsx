@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   Plus,
   Save,
@@ -19,7 +18,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Trash2,
   Info,
 } from 'lucide-react'
 import type { Prisma } from '@prisma/client'

@@ -85,13 +85,15 @@ export async function POST(request: Request) {
       },
     }).catch(() => {}) // Non-blocking
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // The `messages` param type from streamText requires non-undefined;
+    // our scrubbedMessages array is always defined after the parse check.
+    type StreamMessages = NonNullable<Parameters<typeof streamText>[0]['messages']>
     const result = streamText({
       model: openai('gpt-4o'),
       system: SYSTEM_PROMPT,
-      messages: scrubbedMessages as any,
+      messages: scrubbedMessages as StreamMessages,
       temperature: 0.3,
-    } as any)
+    })
 
     logger.info('AI chat request', {
       orgId: profile.organizationId,

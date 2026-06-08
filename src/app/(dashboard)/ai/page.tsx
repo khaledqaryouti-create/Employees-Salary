@@ -90,8 +90,6 @@ How can I help you today?`,
       // Stream the response
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
-      let assistantContent = ''
-
       const assistantMsgId = crypto.randomUUID()
       setMessages((prev) => [
         ...prev,
@@ -99,14 +97,15 @@ How can I help you today?`,
       ])
 
       if (reader) {
+        let accumulated = ''
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
-          const chunk = decoder.decode(value, { stream: true })
-          assistantContent += chunk
+          accumulated += decoder.decode(value, { stream: true })
+          const snapshot = accumulated
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantMsgId ? { ...m, content: assistantContent } : m
+              m.id === assistantMsgId ? { ...m, content: snapshot } : m
             )
           )
         }

@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     const { leaveTypeId, startDate, endDate, reason } = parsed.data
 
     // Find the employee record for this user
-    let employee = await prisma.employee.findFirst({
+    const employee = await prisma.employee.findFirst({
       where: { profile: { id: profile.id }, organizationId: profile.organizationId },
       select: { id: true },
     })
