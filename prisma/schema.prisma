@@ -1,0 +1,542 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  HR_ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum EmploymentType {
+  LOCAL
+  EXPATRIATE
+  CONTRACT
+  PART_TIME
+}
+
+enum PayrollRuleType {
+  EARNING
+  DEDUCTION
+  EMPLOYER_COST
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  PROCESSING
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  FAILED
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SalaryComponentType {
+  EARNING
+  DEDUCTION
+}
+
+enum FormulaVariableSource {
+  EMPLOYEE_FIELD
+  CONFIG_VALUE
+  COMPUTED
+}
+
+enum NotificationType {
+  PAYSLIP_READY
+  PAYROLL_RUN_STARTED
+  PAYROLL_APPROVED
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  COMPLIANCE_DEADLINE
+}
+
+// ─── ORGANIZATION (TENANT) ────────────────────────────────────────────────────
+
+model Organization {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  country       String
+  currency      String   @default("USD")
+  timezone      String   @default("UTC")
+  payFrequency  String   @default("MONTHLY")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  branding          TenantBranding?
+  employees         Employee[]
+  payrollRuns       PayrollRun[]
+  ruleSets          CountryRuleSet[]
+  configValues      ConfigValue[]
+  taxBrackets       TaxBracket[]
+  salaryComponents  SalaryComponent[]
+  customFields      CustomField[]
+  leaveTypes        LeaveType[]
+  approvalWorkflows ApprovalWorkflow[]
+  users             Profile[]
+  notifications     Notification[]
+  auditLogs         RuleAuditLog[]
+  aiAuditLogs       AiAuditLog[]
+  glAccountMappings GlAccountMapping[]
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+model TenantBranding {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  logoUrl        String?
+  primaryColor   String       @default("#2563eb")
+  accentColor    String       @default("#7c3aed")
+  companyNameOnSlip String?
+  payslipFooter  String?
+  updatedAt      DateTime     @updatedAt
+}
+
+// ─── USERS & AUTH ─────────────────────────────────────────────────────────────
+
+model Profile {
+  id             String       @id
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  email          String       @unique
+  fullName       String
+  role           UserRole     @default(EMPLOYEE)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  employee       Employee?
+  aiConsent      Boolean      @default(false)
+  aiConsentAt    DateTime?
+
+  @@index([organizationId])
+  @@index([organizationId, role])
+}
+
+// ─── EMPLOYEES ────────────────────────────────────────────────────────────────
+
+model Employee {
+  id               String         @id @default(cuid())
+  organizationId   String
+  organization     Organization   @relation(fields: [organizationId], references: [id])
+  profileId        String?        @unique
+  profile          Profile?       @relation(fields: [profileId], references: [id])
+  employeeNumber   String
+  fullName         String
+  email            String
+  phone            String?
+  nationality      String?
+  country          String
+  department       String?
+  jobTitle         String?
+  managerId        String?
+  manager          Employee?      @relation("ManagerEmployee", fields: [managerId], references: [id])
+  subordinates     Employee[]     @relation("ManagerEmployee")
+  employmentType   EmploymentType @default(LOCAL)
+  joinDate         DateTime
+  terminationDate  DateTime?
+  isActive         Boolean        @default(true)
+  bankName         String?
+  bankAccountEncrypted String?
+  ibanEncrypted    String?
+  nationalIdEncrypted  String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  salaryStructure  SalaryStructure?
+  payrollItems     PayrollItem[]
+  leaveBalances    LeaveBalance[]
+  leaveRequests    LeaveRequest[]
+  payslips         Payslip[]
+  customFieldValues CustomFieldValue[]
+
+  @@unique([organizationId, employeeNumber])
+  @@index([organizationId])
+  @@index([organizationId, country])
+  @@index([organizationId, isActive])
+  @@index([organizationId, department])
+}
+
+model SalaryStructure {
+  id             String   @id @default(cuid())
+  employeeId     String   @unique
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  basicSalary    Float
+  currency       String   @default("USD")
+  components     SalaryComponentValue[]
+  effectiveFrom  DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model SalaryComponentValue {
+  id                String          @id @default(cuid())
+  salaryStructureId String
+  salaryStructure   SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Cascade)
+  componentId       String
+  component         SalaryComponent @relation(fields: [componentId], references: [id])
+  amount            Float
+  isPercentage      Boolean         @default(false)
+
+  @@index([salaryStructureId])
+}
+
+// ─── FORMULA ENGINE ───────────────────────────────────────────────────────────
+
+model CountryRuleSet {
+  id             String       @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  country        String
+  name           String
+  year           Int          @default(2026)
+  isDefault      Boolean      @default(false)
+  isActive       Boolean      @default(true)
+  clonedFromId   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  rules          PayrollRule[]
+
+  @@index([organizationId, country])
+  @@index([country, isDefault])
+}
+
+model PayrollRule {
+  id                   String          @id @default(cuid())
+  ruleSetId            String
+  ruleSet              CountryRuleSet  @relation(fields: [ruleSetId], references: [id], onDelete: Cascade)
+  name                 String
+  description          String?
+  type                 PayrollRuleType
+  formula              String
+  applicableTo         String          @default("ALL")
+  isActive             Boolean         @default(true)
+  order                Int             @default(0)
+  showOnPayslip        Boolean         @default(true)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  auditLogs            RuleAuditLog[]
+
+  @@index([ruleSetId, isActive])
+  @@index([ruleSetId, order])
+}
+
+model FormulaVariable {
+  id             String                @id @default(cuid())
+  organizationId String?
+  key            String
+  label          String
+  description    String?
+  sourceType     FormulaVariableSource
+  defaultValue   String?
+  isSystem       Boolean               @default(false)
+  createdAt      DateTime              @default(now())
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+model ConfigValue {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  country        String
+  key            String
+  value          String
+  label          String?
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, country, key])
+  @@index([organizationId, country])
+}
+
+model TaxBracket {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  country        String
+  year           Int
+  fromAmount     Float
+  toAmount       Float?
+  rate           Float
+  fixedAmount    Float        @default(0)
+  label          String?
+  order          Int          @default(0)
+
+  @@index([organizationId, country, year])
+}
+
+model SalaryComponent {
+  id             String              @id @default(cuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  name           String
+  nameAr         String?
+  nameIt         String?
+  type           SalaryComponentType
+  country        String?
+  isRequired     Boolean             @default(false)
+  isActive       Boolean             @default(true)
+  order          Int                 @default(0)
+
+  values         SalaryComponentValue[]
+
+  @@index([organizationId, isActive])
+}
+
+model CustomField {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  fieldType      String       @default("TEXT")
+  isRequired     Boolean      @default(false)
+  options        String?
+  order          Int          @default(0)
+
+  values         CustomFieldValue[]
+
+  @@index([organizationId])
+}
+
+model CustomFieldValue {
+  id           String      @id @default(cuid())
+  employeeId   String
+  employee     Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  customFieldId String
+  customField  CustomField @relation(fields: [customFieldId], references: [id])
+  value        String?
+
+  @@unique([employeeId, customFieldId])
+}
+
+// ─── PAYROLL ──────────────────────────────────────────────────────────────────
+
+model PayrollRun {
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  name           String
+  periodYear     Int
+  periodMonth    Int
+  country        String?
+  status         PayrollRunStatus @default(DRAFT)
+  processedAt    DateTime?
+  approvedAt     DateTime?
+  approvedById   String?
+  inngestJobId   String?
+  totalGross     Float            @default(0)
+  totalNet       Float            @default(0)
+  totalDeductions Float           @default(0)
+  employeeCount  Int              @default(0)
+  currency       String           @default("USD")
+  notes          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  items          PayrollItem[]
+  payslips       Payslip[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, periodYear, periodMonth])
+}
+
+model PayrollItem {
+  id             String     @id @default(cuid())
+  payrollRunId   String
+  payrollRun     PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee   @relation(fields: [employeeId], references: [id])
+  grossPay       Float
+  netPay         Float
+  totalDeductions Float
+  totalEarnings  Float
+  earningsJson   Json
+  deductionsJson Json
+  employerCostJson Json     @default("{}")
+  hasError       Boolean    @default(false)
+  errorMessage   String?
+  createdAt      DateTime   @default(now())
+
+  @@unique([payrollRunId, employeeId])
+  @@index([payrollRunId])
+  @@index([employeeId])
+}
+
+model Payslip {
+  id             String     @id @default(cuid())
+  payrollRunId   String
+  payrollRun     PayrollRun @relation(fields: [payrollRunId], references: [id])
+  employeeId     String
+  employee       Employee   @relation(fields: [employeeId], references: [id])
+  pdfUrl         String?
+  generatedAt    DateTime   @default(now())
+  emailSentAt    DateTime?
+
+  @@unique([payrollRunId, employeeId])
+  @@index([employeeId])
+}
+
+// ─── LEAVE & ATTENDANCE ───────────────────────────────────────────────────────
+
+model LeaveType {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  nameAr         String?
+  isPaid         Boolean      @default(true)
+  defaultDays    Int          @default(0)
+  accrualRule    String?
+  carryOverDays  Int          @default(0)
+  isActive       Boolean      @default(true)
+
+  balances       LeaveBalance[]
+  requests       LeaveRequest[]
+
+  @@index([organizationId, isActive])
+}
+
+model LeaveBalance {
+  id           String    @id @default(cuid())
+  employeeId   String
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveTypeId  String
+  leaveType    LeaveType @relation(fields: [leaveTypeId], references: [id])
+  year         Int
+  totalDays    Float
+  usedDays     Float     @default(0)
+  pendingDays  Float     @default(0)
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@index([employeeId])
+}
+
+model LeaveRequest {
+  id           String             @id @default(cuid())
+  employeeId   String
+  employee     Employee           @relation(fields: [employeeId], references: [id])
+  leaveTypeId  String
+  leaveType    LeaveType          @relation(fields: [leaveTypeId], references: [id])
+  startDate    DateTime
+  endDate      DateTime
+  days         Float
+  reason       String?
+  status       LeaveRequestStatus @default(PENDING)
+  approvedById String?
+  approvedAt   DateTime?
+  rejectionReason String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([employeeId, status])
+}
+
+// ─── APPROVAL WORKFLOWS ───────────────────────────────────────────────────────
+
+model ApprovalWorkflow {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  type           String       @default("PAYROLL")
+  levels         Int          @default(1)
+  config         Json
+  isActive       Boolean      @default(true)
+
+  @@index([organizationId, type])
+}
+
+// ─── AUDIT & LOGS ─────────────────────────────────────────────────────────────
+
+model RuleAuditLog {
+  id             String      @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  ruleId         String?
+  rule           PayrollRule? @relation(fields: [ruleId], references: [id])
+  action         String
+  oldFormula     String?
+  newFormula     String?
+  changedById    String
+  changedByEmail String
+  changedAt      DateTime    @default(now())
+
+  @@index([organizationId, changedAt])
+  @@index([ruleId])
+}
+
+model AiAuditLog {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  userId          String
+  userRole        String
+  page            String?
+  dataCategories  String[]
+  query           String
+  wasAnswered     Boolean      @default(true)
+  wasBlocked      Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([userId])
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+
+model Notification {
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  userId         String
+  type           NotificationType
+  title          String
+  message        String
+  isRead         Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+
+  @@index([organizationId, userId, isRead])
+}
+
+// ─── GL ACCOUNT MAPPING ───────────────────────────────────────────────────────
+
+model GlAccountMapping {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  componentName    String
+  debitAccount     String
+  creditAccount    String
+  description      String?
+
+  @@unique([organizationId, componentName])
+  @@index([organizationId])
+}
