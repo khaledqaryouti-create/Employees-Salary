@@ -6,9 +6,14 @@
  */
 
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import { COUNTRY_RULE_SETS } from './seed-data/country-rules'
 
-const prisma = new PrismaClient()
+const adapter = new PrismaPg({
+  connectionString: process.env['DATABASE_URL'] ??
+    'postgresql://postgres:kvxTDrvyu8jMPP2a@db.smqnqxcupakpjfvwobla.supabase.co:5432/postgres',
+})
+const prisma = new PrismaClient({ adapter })
 
 const SYSTEM_VARIABLES = [
   { key: 'basicSalary', label: 'Basic Salary', description: 'Employee monthly basic salary', isSystem: true },

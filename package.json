@@ -18,7 +18,9 @@
     "test:coverage": "vitest run --coverage"
   },
   "lint-staged": {
-    "*.{ts,tsx}": ["eslint --fix"]
+    "*.{ts,tsx}": [
+      "eslint --fix"
+    ]
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.68",
@@ -38,6 +40,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
+    "dotenv": "^17.4.2",
     "inngest": "^4.5.0",
     "lucide-react": "^1.17.0",
     "mathjs": "^15.2.0",

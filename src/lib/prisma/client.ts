@@ -3,11 +3,9 @@ import { PrismaPg } from '@prisma/adapter-pg'
 
 function createPrismaClient() {
   const databaseUrl = process.env.DATABASE_URL
-  if (!databaseUrl) {
-    // During build/type-check without DB, return a dummy client
-    return new PrismaClient()
-  }
-  const adapter = new PrismaPg({ connectionString: databaseUrl })
+  const adapter = new PrismaPg({
+    connectionString: databaseUrl ?? 'postgresql://localhost:5432/postgres',
+  })
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
