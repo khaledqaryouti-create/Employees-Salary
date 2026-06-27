@@ -4,13 +4,12 @@ import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
-export default function DashboardError({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string }
-  reset: () => void
-}) {
+interface DashboardErrorProps {
+  readonly error: Error & { digest?: string }
+  readonly reset: () => void
+}
+
+export default function DashboardError({ error, reset }: DashboardErrorProps) {
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       console.error('[DashboardError]', error)
@@ -36,7 +35,7 @@ export default function DashboardError({
               <RefreshCw className="w-3.5 h-3.5" />
               Retry
             </Button>
-            <Button size="sm" variant="outline" onClick={() => window.location.href = '/dashboard'} className="gap-2">
+            <Button size="sm" variant="outline" onClick={() => { globalThis.location.href = '/dashboard' }} className="gap-2">
               <Home className="w-3.5 h-3.5" />
               Dashboard
             </Button>

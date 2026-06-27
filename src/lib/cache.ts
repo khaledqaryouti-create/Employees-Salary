@@ -19,12 +19,11 @@ export const CACHE_TAGS = {
 export const getCachedFormulaRules = (orgId: string) =>
   unstable_cache(
     async () => {
-      const ruleSets = await prisma.countryRuleSet.findMany({
+      return prisma.countryRuleSet.findMany({
         where: { OR: [{ organizationId: orgId }, { organizationId: null }] },
         include: { rules: { where: { isActive: true }, orderBy: { order: 'asc' } } },
         orderBy: { createdAt: 'asc' },
       })
-      return ruleSets
     },
     [`formula-rules-${orgId}`],
     { revalidate: 300, tags: [CACHE_TAGS.formulaRules(orgId)] },

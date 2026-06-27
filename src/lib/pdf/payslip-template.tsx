@@ -196,7 +196,11 @@ function fmt(amount: number, currency: string): string {
   }).format(amount) + ' ' + currency
 }
 
-export function PayslipDocument({ data }: { data: PayslipData }) {
+interface PayslipDocumentProps {
+  readonly data: PayslipData
+}
+
+export function PayslipDocument({ data }: PayslipDocumentProps) {
   const earnings = Object.entries(data.earnings)
   const deductions = Object.entries(data.deductions)
   const monthName = MONTHS[(data.periodMonth - 1) % 12] ?? ''

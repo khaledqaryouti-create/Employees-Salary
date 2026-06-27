@@ -128,3 +128,32 @@
     @apply font-sans;
   }
 }
+
+/* ─── RTL Support ─────────────────────────────────────────────────────────── */
+[dir="rtl"] {
+  /* Flip flex row directions and text alignment */
+  .flex-row { flex-direction: row-reverse; }
+
+  /* Sidebar: appears on the right in RTL */
+  aside {
+    border-left: none;
+    border-right: 1px solid;
+  }
+
+  /* Input icon positions */
+  .pl-9 { padding-left: 0.75rem; padding-right: 2.25rem; }
+  .pl-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+
+  /* Chevron icons in nav */
+  .rotate-rtl { transform: rotate(180deg); }
+}
+
+/* Arabic / Urdu font stack */
+[lang="ar"], [lang="ur"] {
+  font-family: 'Segoe UI', 'Arial', 'Tahoma', system-ui, sans-serif;
+}
+
+/* Japanese / Chinese font stack */
+[lang="ja"], [lang="zh"] {
+  font-family: 'Hiragino Sans', 'Yu Gothic', system-ui, sans-serif;
+}

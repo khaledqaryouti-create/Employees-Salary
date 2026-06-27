@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma/client'
 import { success, error, handlePrismaError } from '@/lib/errors/api-response'
 import { logger } from '@/lib/errors/logger'
+import { logActivity } from '@/lib/system-log'
+import { getActiveBranchId } from '@/lib/auth/active-branch'
 import { z } from 'zod'
 
 const createSchema = z.object({
@@ -18,7 +20,7 @@ export async function GET() {
     if (!user) return error('UNAUTHORIZED', 'Authentication required', 401)
 
     const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-    if (!profile || !profile.organizationId) return error('FORBIDDEN', 'No organization assigned', 403)
+    if (!profile?.organizationId) return error('FORBIDDEN', 'No organization assigned', 403)
 
     const isEmployee = profile.role === 'EMPLOYEE'
     const employee = isEmployee
@@ -28,11 +30,19 @@ export async function GET() {
         })
       : null
 
+    // Apply branch scoping for non-employee roles
+    const activeBranchId = await getActiveBranchId(profile.organizationId)
+
     const requests = await prisma.leaveRequest.findMany({
       where: {
         ...(isEmployee && employee
           ? { employeeId: employee.id }
-          : { employee: { organizationId: profile.organizationId } }),
+          : {
+              employee: {
+                organizationId: profile.organizationId,
+                ...(activeBranchId && { orgUnit: { branchId: activeBranchId } }),
+              },
+            }),
       },
       include: {
         employee: { select: { fullName: true, employeeNumber: true } },
@@ -56,7 +66,7 @@ export async function POST(request: Request) {
     if (!user) return error('UNAUTHORIZED', 'Authentication required', 401)
 
     const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-    if (!profile || !profile.organizationId) return error('FORBIDDEN', 'No organization assigned', 403)
+    if (!profile?.organizationId) return error('FORBIDDEN', 'No organization assigned', 403)
 
     const body: unknown = await request.json()
     const parsed = createSchema.safeParse(body)
@@ -120,6 +130,15 @@ export async function POST(request: Request) {
       employeeId: employee.id,
       orgId: profile.organizationId,
     })
+
+    await logActivity(
+      profile.organizationId,
+      profile.id,
+      profile.email,
+      'LEAVE_REQUESTED',
+      { type: 'LeaveRequest', id: leaveRequest.id },
+      { days: daysCount, leaveTypeId }
+    )
 
     return success(leaveRequest)
   } catch (err) {

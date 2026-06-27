@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma/client'
 import { success, error, handlePrismaError } from '@/lib/errors/api-response'
 import { logger } from '@/lib/errors/logger'
+import { logActivity } from '@/lib/system-log'
 import { z } from 'zod'
 
 const reviewSchema = z.object({
@@ -17,7 +18,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!user) return error('UNAUTHORIZED', 'Authentication required', 401)
 
     const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-    if (!profile || !profile.organizationId) return error('FORBIDDEN', 'No organization', 403)
+    if (!profile?.organizationId) return error('FORBIDDEN', 'No organization', 403)
 
     if (!['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN', 'MANAGER'].includes(profile.role)) {
       return error('FORBIDDEN', 'You do not have permission to review leave requests', 403)
@@ -63,6 +64,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       action: parsed.data.action,
       reviewedBy: user.id,
     })
+
+    await logActivity(
+      profile.organizationId,
+      profile.id,
+      profile.email,
+      parsed.data.action === 'APPROVE' ? 'LEAVE_APPROVED' : 'LEAVE_REJECTED',
+      { type: 'LeaveRequest', id },
+      { action: parsed.data.action }
+    )
 
     return success(updated)
   } catch (err) {

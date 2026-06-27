@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,8 @@ interface LeaveType {
 
 export default function NewLeaveRequestPage() {
   const router = useRouter()
+  const t = useTranslations('leave')
+  const tc = useTranslations('common')
   const [loading, setLoading] = useState(false)
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
   const [leaveTypeId, setLeaveTypeId] = useState('')
@@ -71,7 +74,7 @@ export default function NewLeaveRequestPage() {
         return
       }
 
-      toast.success('Leave request submitted successfully')
+      toast.success(t('submitted'))
       router.push('/leave')
       router.refresh()
     } catch {
@@ -86,34 +89,34 @@ export default function NewLeaveRequestPage() {
       <div className="flex items-center gap-4">
         <LinkButton variant="ghost" href="/leave" size="sm">
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Back
+          {tc('back')}
         </LinkButton>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Request Leave</h1>
-          <p className="text-sm text-gray-500">Submit a leave request for approval</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('requestTitle')}</h1>
+          <p className="text-sm text-gray-500">{t('requestDesc')}</p>
         </div>
       </div>
 
       <Card className="border-0 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base">Leave Details</CardTitle>
+          <CardTitle className="text-base">{t('leaveDetails')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-sm">Leave Type <span className="text-red-500">*</span></Label>
+            <Label className="text-sm">{t('leaveType')} <span className="text-red-500">*</span></Label>
             <Select onValueChange={(v) => { if (typeof v === 'string' && v) setLeaveTypeId(v) }}>
               <SelectTrigger>
-                <SelectValue placeholder="Select leave type" />
+                <SelectValue placeholder={t('selectLeaveType')} />
               </SelectTrigger>
               <SelectContent>
                 {leaveTypes.map((lt) => (
                   <SelectItem key={lt.id} value={lt.id}>
                     {lt.name}
-                    {lt.maxDaysPerYear && ` (max ${lt.maxDaysPerYear} days/year)`}
+                    {lt.maxDaysPerYear && ` (${t('maxDaysPerYear', { days: lt.maxDaysPerYear })})`}
                   </SelectItem>
                 ))}
                 {leaveTypes.length === 0 && (
-                  <SelectItem value="_none" disabled>No leave types configured</SelectItem>
+                  <SelectItem value="_none" disabled>{t('noLeaveTypes')}</SelectItem>
                 )}
               </SelectContent>
             </Select>
@@ -122,7 +125,7 @@ export default function NewLeaveRequestPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-sm">From <span className="text-red-500">*</span></Label>
+              <Label className="text-sm">{t('from')} <span className="text-red-500">*</span></Label>
               <Input
                 type="date"
                 value={startDate}
@@ -135,7 +138,7 @@ export default function NewLeaveRequestPage() {
               {errors['startDate'] && <p className="text-xs text-red-500">{errors['startDate']}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm">To <span className="text-red-500">*</span></Label>
+              <Label className="text-sm">{t('to')} <span className="text-red-500">*</span></Label>
               <Input
                 type="date"
                 value={endDate}
@@ -148,15 +151,15 @@ export default function NewLeaveRequestPage() {
 
           {daysDiff > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-sm text-blue-700">
-              {daysDiff} calendar day{daysDiff !== 1 ? 's' : ''}
+              {daysDiff} {daysDiff === 1 ? t('calendarDay') : t('calendarDays')}
             </div>
           )}
 
           <div className="space-y-1.5">
-            <Label className="text-sm">Reason (optional)</Label>
+            <Label className="text-sm">{t('reasonOptional')}</Label>
             <textarea
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring min-h-[80px] resize-none"
-              placeholder="Brief description of your leave reason..."
+              placeholder={t('reasonPlaceholder')}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               maxLength={500}
@@ -166,12 +169,12 @@ export default function NewLeaveRequestPage() {
       </Card>
 
       <div className="flex items-center justify-end gap-3">
-        <LinkButton variant="outline" href="/leave">Cancel</LinkButton>
+        <LinkButton variant="outline" href="/leave">{tc('cancel')}</LinkButton>
         <Button onClick={handleSubmit} disabled={loading} className="min-w-[160px]">
           {loading ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting…</>
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('submitting')}</>
           ) : (
-            'Submit Request'
+            t('submitRequest')
           )}
         </Button>
       </div>

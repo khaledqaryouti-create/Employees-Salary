@@ -24,7 +24,11 @@ export async function GET(
       where: { id },
       include: {
         employee: {
-          include: { salaryStructure: true, profile: { select: { id: true } } },
+          include: {
+            salaryStructure: true,
+            profile: { select: { id: true } },
+            orgUnit: { select: { name: true } },
+          },
         },
         payrollRun: {
           include: { organization: true },
@@ -36,16 +40,17 @@ export async function GET(
 
     // Security: employee can only view own payslips; HR can view all in org
     const isOwnPayslip = item.employee.profile?.id === profile.id
+    const isSuperAdmin = profile.role === 'SUPER_ADMIN'
     const isHr = ['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN', 'PAYROLL_ADMIN', 'MANAGER'].includes(profile.role)
     const sameOrg = item.payrollRun.organizationId === profile.organizationId
 
-    if (!isOwnPayslip && !(isHr && sameOrg)) {
+    if (!isOwnPayslip && !isSuperAdmin && !(isHr && sameOrg)) {
       return error('FORBIDDEN', 'You do not have permission to view this payslip', 403)
     }
 
     const currency = item.employee.salaryStructure?.currency ?? 'USD'
-    const earningsJson = item.earningsJson as Record<string, number>
-    const deductionsJson = item.deductionsJson as Record<string, number>
+    const earningsJson  = (item.earningsJson  ?? {}) as Record<string, number>
+    const deductionsJson = (item.deductionsJson ?? {}) as Record<string, number>
 
     const payslipData = {
       organizationName: item.payrollRun.organization.name,
@@ -54,7 +59,7 @@ export async function GET(
       employeeName: item.employee.fullName,
       employeeNumber: item.employee.employeeNumber,
       jobTitle: item.employee.jobTitle,
-      department: item.employee.department,
+      department: item.employee.orgUnit?.name ?? null,
       country: item.employee.country,
       currency,
       basicSalary: item.employee.salaryStructure?.basicSalary ?? 0,

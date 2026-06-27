@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     if (!user) return error('UNAUTHORIZED', 'Authentication required', 401)
 
     const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-    if (!profile || !profile.organizationId) return error('FORBIDDEN', 'No organization', 403)
+    if (!profile?.organizationId) return error('FORBIDDEN', 'No organization', 403)
     if (!['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN', 'PAYROLL_ADMIN'].includes(profile.role)) {
       return error('FORBIDDEN', 'Insufficient permissions', 403)
     }

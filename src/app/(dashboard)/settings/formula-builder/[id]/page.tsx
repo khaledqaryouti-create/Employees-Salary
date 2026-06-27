@@ -1,23 +1,20 @@
-import { createClient } from '@/lib/supabase/server'
+import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { prisma } from '@/lib/prisma/client'
-import { redirect, notFound } from 'next/navigation'
+import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { LinkButton } from '@/components/ui/link-button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft } from 'lucide-react'
 import { FormulaRulesList } from './formula-rules-list'
 
-export default async function FormulaRuleSetPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
-  const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+interface FormulaRuleSetPageProps {
+  readonly params: Promise<{ readonly id: string }>
+}
 
-  const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-  if (!['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN'].includes(profile?.role ?? '')) {
+export default async function FormulaRuleSetPage({ params }: FormulaRuleSetPageProps) {
+  const { id } = await params
+  const { profile, orgId } = await getProfileOrRedirect()
+  if (!['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN'].includes(profile.role)) {
     redirect('/dashboard')
   }
 
@@ -31,6 +28,12 @@ export default async function FormulaRuleSetPage({
   })
 
   if (!ruleSet) notFound()
+
+  const allowanceTypes = await prisma.allowanceType.findMany({
+    where: { organizationId: orgId, isActive: true },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true },
+  })
 
   // Load available formula variables
   const variables = await prisma.formulaVariable.findMany({
@@ -70,6 +73,7 @@ export default async function FormulaRuleSetPage({
         ruleSetId={ruleSet.id}
         rules={ruleSet.rules}
         variables={variables}
+        allowanceTypes={allowanceTypes}
         isDefault={ruleSet.isDefault}
         organizationId={profile?.organizationId ?? null}
         ruleSetOrgId={ruleSet.organizationId}

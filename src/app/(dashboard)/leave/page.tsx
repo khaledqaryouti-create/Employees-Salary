@@ -1,11 +1,11 @@
-import { createClient } from '@/lib/supabase/server'
+import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { prisma } from '@/lib/prisma/client'
-import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { LinkButton } from '@/components/ui/link-button'
 import { CalendarDays, Plus, ChevronRight, Clock } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
+import { getTranslations } from 'next-intl/server'
 
 const statusColors: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-700',
@@ -15,19 +15,14 @@ const statusColors: Record<string, string> = {
 }
 
 export default async function LeavePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
-
-  const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-  if (!profile?.organizationId) redirect('/auth/login')
+  const { profile, orgId } = await getProfileOrRedirect()
+  const t = await getTranslations('leave')
 
   const isEmployee = profile.role === 'EMPLOYEE'
 
-  // HR sees all; employee sees own
   const employee = isEmployee
     ? await prisma.employee.findFirst({
-        where: { profile: { id: profile.id }, organizationId: profile.organizationId },
+        where: { profile: { id: profile.id }, organizationId: orgId },
         select: { id: true },
       })
     : null
@@ -36,7 +31,7 @@ export default async function LeavePage() {
     where: {
       ...(isEmployee && employee
         ? { employeeId: employee.id }
-        : { employee: { organizationId: profile.organizationId } }),
+        : { employee: { organizationId: orgId } }),
     },
     include: {
       employee: { select: { fullName: true, employeeNumber: true } },
@@ -48,34 +43,43 @@ export default async function LeavePage() {
 
   const pendingCount = requests.filter((r) => r.status === 'PENDING').length
 
+  const statusLabel: Record<string, string> = {
+    PENDING: t('pending'),
+    APPROVED: t('approved'),
+    REJECTED: t('rejected'),
+    CANCELLED: t('cancelled'),
+  }
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Leave & Attendance</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('leaveAttendance')}</h1>
           <p className="text-sm text-gray-500 mt-1">
             {pendingCount > 0 && (
-              <span className="text-yellow-600 font-medium">{pendingCount} pending approval · </span>
+              <span className="text-yellow-600 font-medium">
+                {t('pendingApprovalCount', { count: pendingCount })} ·{' '}
+              </span>
             )}
-            {requests.length} total requests
+            {t('totalRequests', { count: requests.length })}
           </p>
         </div>
         <LinkButton href="/leave/new">
           <Plus className="w-4 h-4 mr-2" />
-          Request Leave
+          {t('requestLeave')}
         </LinkButton>
       </div>
 
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Leave Requests</CardTitle>
+          <CardTitle className="text-base">{t('leaveRequests')}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {requests.length === 0 ? (
             <div className="text-center py-16">
               <CalendarDays className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-              <p className="text-gray-500 font-medium">No leave requests yet</p>
-              <LinkButton href="/leave/new" className="mt-6">Request Leave</LinkButton>
+              <p className="text-gray-500 font-medium">{t('noRequestsYet')}</p>
+              <LinkButton href="/leave/new" className="mt-6">{t('requestLeave')}</LinkButton>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
@@ -106,7 +110,7 @@ export default async function LeavePage() {
                         </span>
                         <span className="text-xs text-gray-500">
                           <Clock className="w-3 h-3 inline mr-0.5" />
-                          {days} day{days !== 1 ? 's' : ''}
+                          {days} {days === 1 ? t('day') : t('days')}
                         </span>
                         <span className="text-xs text-gray-400">
                           {formatDate(req.startDate)}
@@ -119,7 +123,7 @@ export default async function LeavePage() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-4">
                       <Badge className={`text-xs ${statusColors[req.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {req.status}
+                        {statusLabel[req.status] ?? req.status}
                       </Badge>
                       {!isEmployee && req.status === 'PENDING' && (
                         <LinkButton
@@ -128,7 +132,7 @@ export default async function LeavePage() {
                           size="sm"
                           className="text-xs"
                         >
-                          Review
+                          {t('review')}
                         </LinkButton>
                       )}
                       <ChevronRight className="w-4 h-4 text-gray-300" />

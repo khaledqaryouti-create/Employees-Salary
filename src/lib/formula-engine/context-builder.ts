@@ -35,7 +35,7 @@ export function buildFormulaContext(
   const yearsOfService = differenceInYears(periodDate, joinDate)
   const monthsOfService = differenceInMonths(periodDate, joinDate)
 
-  // Build component map: componentName → amount
+  // Build component map: componentName â†’ amount
   const componentMap: Record<string, number> = {}
   let totalAllowances = 0
 
@@ -71,10 +71,10 @@ export function buildFormulaContext(
     ...componentMap,
   }
 
-  // Merge config values (e.g. gosiRate, pfRate) — all converted to numbers
+  // Merge config values (e.g. gosiRate, pfRate) â€” all converted to numbers
   for (const [key, value] of Object.entries(configValues)) {
-    const num = parseFloat(value)
-    if (!isNaN(num)) {
+    const num = Number.parseFloat(value)
+    if (!Number.isNaN(num)) {
       context[key] = num
     }
   }

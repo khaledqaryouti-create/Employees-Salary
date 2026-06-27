@@ -1,6 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { prisma } from '@/lib/prisma/client'
-import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { LinkButton } from '@/components/ui/link-button'
@@ -11,16 +10,11 @@ const MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
 
 export default async function SelfServicePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
-
-  const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-  if (!profile?.organizationId) redirect('/auth/login')
+  const { profile, orgId } = await getProfileOrRedirect()
 
   const employee = await prisma.employee.findFirst({
-    where: { profile: { id: profile.id }, organizationId: profile.organizationId },
-    include: { salaryStructure: true },
+    where: { profile: { id: profile.id }, organizationId: orgId },
+    include: { salaryStructure: true, orgUnit: { select: { name: true } } },
   })
 
   const recentPayslips = employee
@@ -57,7 +51,7 @@ export default async function SelfServicePage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-lg">{employee.fullName}</p>
-                <p className="text-sm text-gray-500">{employee.jobTitle ?? 'Employee'} · {employee.department ?? 'General'}</p>
+                <p className="text-sm text-gray-500">{employee.jobTitle ?? 'Employee'} · {employee.orgUnit?.name ?? 'General'}</p>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <Badge variant="secondary" className="text-xs">#{employee.employeeNumber}</Badge>
                   <Badge variant="secondary" className="text-xs">{employee.country}</Badge>
@@ -130,12 +124,14 @@ export default async function SelfServicePage() {
   )
 }
 
-function QuickAction({ icon, label, href, count }: {
-  icon: React.ReactNode
-  label: string
-  href: string
-  count?: number
-}) {
+interface QuickActionProps {
+  readonly icon: React.ReactNode
+  readonly label: string
+  readonly href: string
+  readonly count?: number
+}
+
+function QuickAction({ icon, label, href, count }: QuickActionProps) {
   return (
     <LinkButton
       href={href}
@@ -154,3 +150,4 @@ function QuickAction({ icon, label, href, count }: {
     </LinkButton>
   )
 }
+

@@ -77,6 +77,11 @@ model Organization {
   id            String   @id @default(cuid())
   name          String
   slug          String   @unique
+  displayName   String?
+  contactEmail  String?
+  website       String?
+  address       String?
+  dateFormat    String   @default("DD/MM/YYYY")
   country       String?
   currency      String   @default("USD")
   timezone      String   @default("UTC")
@@ -100,10 +105,140 @@ model Organization {
   auditLogs         RuleAuditLog[]
   aiAuditLogs       AiAuditLog[]
   glAccountMappings GlAccountMapping[]
+  orgUnitLevels     OrgUnitLevel[]
+  orgUnits          OrgUnit[]
+  systemLogs        SystemLog[]
+  jobFamilies       JobFamily[]
+  jobTitles         JobTitle[]
+  nationalities     Nationality[]
+  religions         Religion[]
+  attachmentTypes   AttachmentType[]
+  contactTypes      ContactType[]
+  healthStatuses    HealthStatus[]
+  birthPlaces       BirthPlace[]
+  assetTypes        AssetType[]
+  universities      University[]
+  faculties         Faculty[]
+  academicDegrees           AcademicDegree[]
+  competencyClassifications CompetencyClassification[]
+  competencies              Competency[]
+  trainingTypes             TrainingType[]
+  certificateTypes          CertificateType[]
+  deductionTypes            DeductionType[]
+  otherIncomeTypes          OtherIncomeType[]
+  overtimeTypes             OvertimeType[]
+  branches                  Branch[]
+  userGroups                UserGroup[]
+  salaryTransactions        SalaryTransaction[]
+  allowanceTypes            AllowanceType[]
 
   @@index([slug])
   @@index([isActive])
 }
+
+// ─── BRANCH ───────────────────────────────────────────────────────────────────
+
+model Branch {
+  id                     String       @id @default(cuid())
+  organizationId         String
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Basic identification
+  name                   String
+  nameAr                 String?
+  code                   String?
+  description            String?
+  nationalCode           String?
+  molId                  String?
+  crId                   String?
+
+  // Location & contact
+  country                String?
+  city                   String?
+  address                String?
+  poBox                  String?
+  telephone              String?
+  fax                    String?
+  email                  String?
+  website                String?
+  socialSecurityLocation String?
+  logoUrl                String?
+
+  // Management
+  managerName            String?
+  establishedDate        DateTime?
+  costCenter             String?
+
+  // Financial & tax
+  baseCurrency           String?
+  taxCurrency            String?
+  taxProfile             String?
+  countryProfile         String?
+
+  // Behaviour flags
+  isHeadQuarter          Boolean      @default(false)
+  deductNationalTax      Boolean      @default(false)
+  syncFromHeadQuarter    Boolean      @default(false)
+  canModifyEmployeeTax   Boolean      @default(false)
+  isActive               Boolean      @default(true)
+
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  orgUnits               OrgUnit[]
+  profiles               Profile[]
+  payrollRuns            PayrollRun[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+// ─── USER GROUPS & PERMISSIONS ────────────────────────────────────────────────
+
+model UserGroup {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  permissions    UserGroupPermission[]
+  members        ProfileUserGroup[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model UserGroupPermission {
+  id         String    @id @default(cuid())
+  groupId    String
+  group      UserGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  pageKey    String
+  canView    Boolean   @default(false)
+  canCreate  Boolean   @default(false)
+  canEdit    Boolean   @default(false)
+  canDelete  Boolean   @default(false)
+  canApprove Boolean   @default(false)
+
+  @@unique([groupId, pageKey])
+  @@index([groupId])
+}
+
+model ProfileUserGroup {
+  profileId  String
+  profile    Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  groupId    String
+  group      UserGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  assignedAt DateTime  @default(now())
+
+  @@id([profileId, groupId])
+  @@index([groupId])
+}
+
+// ─── TENANT BRANDING ──────────────────────────────────────────────────────────
 
 model TenantBranding {
   id             String       @id @default(cuid())
@@ -123,6 +258,8 @@ model Profile {
   id             String       @id
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   email          String       @unique
   fullName       String
   role           UserRole     @default(EMPLOYEE)
@@ -133,9 +270,11 @@ model Profile {
   employee       Employee?
   aiConsent      Boolean      @default(false)
   aiConsentAt    DateTime?
+  userGroups     ProfileUserGroup[]
 
   @@index([organizationId])
   @@index([organizationId, role])
+  @@index([branchId])
 }
 
 // ─── EMPLOYEES ────────────────────────────────────────────────────────────────
@@ -146,13 +285,16 @@ model Employee {
   organization     Organization   @relation(fields: [organizationId], references: [id])
   profileId        String?        @unique
   profile          Profile?       @relation(fields: [profileId], references: [id])
-  employeeNumber   String
+  employeeNumber   String   @unique
   fullName         String
+  firstName        String?
+  secondName       String?
+  thirdName        String?
+  lastName         String?
   email            String
   phone            String?
   nationality      String?
   country          String
-  department       String?
   jobTitle         String?
   managerId        String?
   manager          Employee?      @relation("ManagerEmployee", fields: [managerId], references: [id])
@@ -168,18 +310,39 @@ model Employee {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
-  salaryStructure  SalaryStructure?
-  payrollItems     PayrollItem[]
-  leaveBalances    LeaveBalance[]
-  leaveRequests    LeaveRequest[]
-  payslips         Payslip[]
-  customFieldValues CustomFieldValue[]
+  orgUnitId         String?
+  orgUnit           OrgUnit?       @relation(fields: [orgUnitId], references: [id])
+  jobTitleId        String?
+  jobTitleRef       JobTitle?      @relation(fields: [jobTitleId], references: [id])
+  salaryStructure   SalaryStructure?
+  payrollItems      PayrollItem[]
+  leaveBalances     LeaveBalance[]
+  leaveRequests     LeaveRequest[]
+  payslips          Payslip[]
+  customFieldValues    CustomFieldValue[]
+  externalIds          EmployeeExternalId[]
+  salaryTransactions   SalaryTransaction[]
 
-  @@unique([organizationId, employeeNumber])
+  @@index([organizationId, employeeNumber])
   @@index([organizationId])
   @@index([organizationId, country])
   @@index([organizationId, isActive])
-  @@index([organizationId, department])
+}
+
+// ─── EMPLOYEE EXTERNAL IDs (for integrations) ─────────────────────────────────
+
+model EmployeeExternalId {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  system     String   // e.g. "SAP", "GOV_PORTAL", "WPS", "ODOO", "ORACLE"
+  externalId String
+  label      String?  // optional human-readable label for this mapping
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, system])
+  @@index([system, externalId])
 }
 
 model SalaryStructure {
@@ -342,6 +505,8 @@ model PayrollRun {
   id             String           @id @default(cuid())
   organizationId String
   organization   Organization     @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  branch         Branch?          @relation(fields: [branchId], references: [id])
   name           String?
   periodYear     Int
   periodMonth    Int
@@ -365,6 +530,7 @@ model PayrollRun {
 
   @@index([organizationId, status])
   @@index([organizationId, periodYear, periodMonth])
+  @@index([branchId])
 }
 
 model PayrollItem {
@@ -541,4 +707,509 @@ model GlAccountMapping {
 
   @@unique([organizationId, componentName])
   @@index([organizationId])
+}
+
+// ─── COMPANY STRUCTURE ────────────────────────────────────────────────────────
+
+model OrgUnitLevel {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String       // e.g. "Site", "Department", "Section", "Division"
+  depth          Int          // 0 = top-level (Site), 1, 2, 3 …
+  color          String?      // optional UI badge color
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  units          OrgUnit[]
+
+  @@unique([organizationId, depth])
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model OrgUnit {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  levelId        String
+  level          OrgUnitLevel @relation(fields: [levelId], references: [id])
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
+  name           String
+  code           String?
+  parentId       String?
+  parent         OrgUnit?     @relation("OrgUnitParent", fields: [parentId], references: [id])
+  children       OrgUnit[]    @relation("OrgUnitParent")
+  isActive       Boolean      @default(true)
+  order          Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  employees      Employee[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([parentId])
+  @@index([levelId])
+  @@index([branchId])
+}
+
+// ─── JOB FAMILY & JOB TITLE LOOKUPS ──────────────────────────────────────────
+
+model JobFamily {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  jobTitles      JobTitle[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model JobTitle {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobFamilyId    String
+  jobFamily      JobFamily    @relation(fields: [jobFamilyId], references: [id])
+  name           String
+  nameAr         String?
+  grade          String?
+  mappingCode     String?
+  integrationCode String?
+  isActive        Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  employees      Employee[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([jobFamilyId])
+}
+
+// ─── NATIONALITY LOOKUP ───────────────────────────────────────────────────────
+
+model Nationality {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  code           String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── RELIGION LOOKUP ──────────────────────────────────────────────────────────
+
+model Religion {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── ATTACHMENT TYPE LOOKUP ───────────────────────────────────────────────────
+
+model AttachmentType {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isRequired     Boolean      @default(false)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── CONTACT TYPE LOOKUP ──────────────────────────────────────────────────────
+
+model ContactType {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── HEALTH STATUS LOOKUP ─────────────────────────────────────────────────────
+
+model HealthStatus {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── BIRTH PLACE LOOKUP ───────────────────────────────────────────────────────
+
+model BirthPlace {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── ASSET TYPE LOOKUP ────────────────────────────────────────────────────────
+
+model AssetType {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── UNIVERSITY LOOKUP ────────────────────────────────────────────────────────
+
+model University {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  country        String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  faculties      Faculty[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── FACULTY LOOKUP ───────────────────────────────────────────────────────────
+
+model Faculty {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  universityId   String
+  university     University   @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([universityId, name])
+  @@index([organizationId])
+  @@index([universityId])
+}
+
+// ─── ACADEMIC DEGREE LOOKUP ───────────────────────────────────────────────────
+
+model AcademicDegree {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── COMPETENCY CLASSIFICATION LOOKUP ────────────────────────────────────────
+
+model CompetencyClassification {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  competencies   Competency[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── COMPETENCY LOOKUP ────────────────────────────────────────────────────────
+
+model Competency {
+  id               String                   @id @default(cuid())
+  organizationId   String
+  organization     Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  classificationId String
+  classification   CompetencyClassification @relation(fields: [classificationId], references: [id], onDelete: Cascade)
+  name             String
+  nameAr           String?
+  description      String?
+  isActive         Boolean                  @default(true)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@unique([classificationId, name])
+  @@index([organizationId])
+  @@index([classificationId])
+}
+
+// ─── TRAINING TYPE LOOKUP ─────────────────────────────────────────────────────
+
+model TrainingType {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── CERTIFICATE TYPE LOOKUP ──────────────────────────────────────────────────
+
+model CertificateType {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── DEDUCTION TYPE LOOKUP ────────────────────────────────────────────────────
+
+model DeductionType {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── OTHER INCOME TYPE LOOKUP ─────────────────────────────────────────────────
+
+model OtherIncomeType {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── OVERTIME TYPE LOOKUP ─────────────────────────────────────────────────────
+
+model OvertimeType {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // ── Hours & Amount Limits ──
+  maxHoursDaily              Float?
+  maxHoursWeekly             Float?
+  maxHoursMonthly            Float?
+  maxAmountDaily             Float?
+  maxAmountWeekly            Float?
+  maxAmountMonthly           Float?
+  maxAmountPercentSalary     Float?
+  upperLimitAction           String?
+
+  // ── Budget ──
+  budgetLimitEnabled         Boolean  @default(false)
+  budgetHierarchy            String?
+
+  // ── Work Week & Calendar ──
+  workWeekStart              String?
+  workWeekEnd                String?
+  workingDaysPerMonth        Int?
+  excludeWeekendsFromCalendar Boolean @default(false)
+  shiftBasedWorkingDays      Boolean  @default(false)
+  workingHoursPerDay         Float?
+
+  // ── Rounding & Entry ──
+  roundingRule               String?
+  payWithRounding            Boolean  @default(false)
+  entryFormat                String?
+  autoCalcEnabled            Boolean  @default(false)
+
+  // ── Rate & Calculation ──
+  baseSalaryMultiplier       Float?
+  fixedRateEnabled           Boolean  @default(false)
+  fixedRateAmount            Float?
+  includeHousing             Boolean  @default(false)
+  conversionEnabled          Boolean  @default(false)
+  conversionHoursPerDay      Float?
+
+  // ── Validation & Overlap ──
+  otSourceType               String?
+  validateLimitsAt           String?
+  checkOverlap               Boolean  @default(true)
+  backDateLimitDays          Int?
+  allowMultiplePerDay        Boolean  @default(true)
+
+  // ── Shift & Schedule ──
+  shiftEndDelayMinutes       Int?
+  restrictToShift            Boolean  @default(false)
+  restrictToShiftPeriod      Boolean  @default(false)
+  requestDaysRestriction     String?
+
+  // ── Attachments, Reason & ESS ──
+  attachmentMandatory        Boolean  @default(false)
+  reasonMandatory            Boolean  @default(false)
+  essRestricted              Boolean  @default(false)
+  nonPayrollRouting          Boolean  @default(false)
+  nonPayrollCode             String?
+
+  // ── Salary Calculation ──
+  includeInSalaryCalc        Boolean  @default(true)
+  salaryCalcMethod           String?
+  includeBasicSalary         Boolean  @default(true)
+  salaryCalcNote             String?
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── ALLOWANCE TYPE LOOKUP ────────────────────────────────────────────────────
+
+model AllowanceType {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  nameAr         String?
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ─── SALARY TRANSACTIONS ─────────────────────────────────────────────────────
+
+model SalaryTransaction {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employeeId      String
+  employee        Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  transactionType String       // DEDUCTION | OTHER_INCOME | OVERTIME
+  typeId          String
+  typeName        String
+  amount          Float
+  hours           Float?
+  transactionDate DateTime?
+  periodYear      Int
+  periodMonth     Int
+  description     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([organizationId, employeeId])
+  @@index([organizationId, periodYear, periodMonth])
+  @@index([organizationId, transactionType])
+}
+
+// ─── SYSTEM ACTIVITY LOG ──────────────────────────────────────────────────────
+
+model SystemLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorId        String?
+  actorEmail     String?
+  action         String
+  entityType     String?
+  entityId       String?
+  detail         Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, action])
 }

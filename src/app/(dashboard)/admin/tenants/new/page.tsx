@@ -25,6 +25,19 @@ const COUNTRY_LABELS: Record<string, string> = {
   EG: 'Egypt', MA: 'Morocco', TN: 'Tunisia', LY: 'Libya', IT: 'Italy',
 }
 
+function autoSlug(value: string) {
+  return value.toLowerCase().replaceAll(/[^a-z0-9]/g, '-').replaceAll(/-+/g, '-').replace(/^-|-$/g, '')
+}
+
+function isValidEmail(value: string): boolean {
+  const atIndex = value.indexOf('@')
+  if (atIndex <= 0) return false
+  if (atIndex !== value.lastIndexOf('@')) return false
+  const domain = value.slice(atIndex + 1)
+  const dotIndex = domain.lastIndexOf('.')
+  return dotIndex > 0 && dotIndex < domain.length - 1
+}
+
 export default function NewTenantPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -36,17 +49,13 @@ export default function NewTenantPage() {
   const [adminName, setAdminName] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  function autoSlug(value: string) {
-    return value.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
-  }
-
   function validate() {
     const e: Record<string, string> = {}
     if (!name.trim()) e['name'] = 'Organization name is required'
     if (!slug.trim()) e['slug'] = 'Slug is required'
     if (!/^[a-z0-9-]+$/.test(slug)) e['slug'] = 'Slug must be lowercase letters, numbers and hyphens only'
     if (!adminEmail.trim()) e['adminEmail'] = 'Admin email is required'
-    if (adminEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) e['adminEmail'] = 'Invalid email'
+    if (adminEmail && !isValidEmail(adminEmail)) e['adminEmail'] = 'Invalid email'
     if (!adminName.trim()) e['adminName'] = 'Admin name is required'
     return e
   }

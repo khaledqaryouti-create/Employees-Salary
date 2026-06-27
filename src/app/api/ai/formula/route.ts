@@ -12,6 +12,14 @@ const schema = z.object({
   existingVariables: z.array(z.string()).optional(),
 })
 
+function stripBackticks(s: string): string {
+  let start = 0
+  let end = s.length
+  while (start < end && s[start] === '`') start++
+  while (end > start && s[end - 1] === '`') end--
+  return s.slice(start, end)
+}
+
 const FORMULA_SYSTEM = `You are a payroll formula expert. Given a plain-language description of a payroll rule, generate a valid mathematical formula using mathjs syntax.
 
 Available variables: grossSalary, basicSalary, housingAllowance, transportAllowance, workingDays, workedDays, overtime, yearsOfService, taxableIncome, socialInsurance, and any custom variable names the user provides.
@@ -62,7 +70,7 @@ export async function POST(req: Request) {
       temperature: 0.1,
     })
 
-    const formula = text.trim().replace(/^`+|`+$/g, '').trim()
+    const formula = stripBackticks(text.trim()).trim()
 
     // Log for audit
     if (profile.organizationId) {

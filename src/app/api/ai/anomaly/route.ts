@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-  if (!profile || !profile.organizationId) {
+  if (!profile?.organizationId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -107,9 +107,12 @@ Format your response as a JSON array of anomaly objects: { severity: "HIGH"|"MED
       temperature: 0.2,
     })
 
-    // Parse AI response
-    const jsonMatch = text.match(/\[[\s\S]*\]/)
-    const anomalies = jsonMatch ? JSON.parse(jsonMatch[0]) : []
+    // Parse AI response — use string operations to avoid regex ReDoS on [\s\S]*
+    const start = text.indexOf('[')
+    const end   = text.lastIndexOf(']')
+    const anomalies: unknown[] = (start !== -1 && end > start)
+      ? (JSON.parse(text.slice(start, end + 1)) as unknown[])
+      : []
 
     // Log audit
     await prisma.aiAuditLog.create({

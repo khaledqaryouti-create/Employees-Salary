@@ -33,7 +33,7 @@ export type EvaluationResult = FormulaResult | FormulaError
 
 /**
  * Safely evaluates a formula string with the given context variables.
- * Never throws — always returns a typed result.
+ * Never throws â€” always returns a typed result.
  */
 export function evaluateFormula(
   formula: string,
@@ -73,7 +73,7 @@ export function evaluateFormula(
 
     const numericResult = typeof result === 'number' ? result : Number(result)
 
-    if (!isFinite(numericResult)) {
+    if (!Number.isFinite(numericResult)) {
       logger.warn('Formula returned non-finite value (division by zero?)', { formula, orgId })
       return { ok: true, value: 0 }
     }

@@ -11,15 +11,15 @@ import {
 } from 'recharts'
 
 interface TrendItem {
-  label: string
-  gross: number
-  net: number
-  deductions: number
-  employees: number
+  readonly label: string
+  readonly gross: number
+  readonly net: number
+  readonly deductions: number
+  readonly employees: number
 }
 
 interface Props {
-  data: TrendItem[]
+  readonly data: TrendItem[]
 }
 
 function formatK(value: number): string {
@@ -39,7 +39,7 @@ export function PayrollTrendChart({ data }: Props) {
               <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="grossGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#10b981" stopOpacity={0.10} />
+              <stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
               <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
             </linearGradient>
           </defs>
@@ -57,10 +57,12 @@ export function PayrollTrendChart({ data }: Props) {
             axisLine={false}
           />
           <Tooltip
-            formatter={(value, name) => [
-              Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-              name === 'net' ? 'Net Pay' : name === 'gross' ? 'Gross Pay' : 'Deductions',
-            ]}
+            formatter={(value, name) => {
+              const LABELS: Record<string, string> = { net: 'Net Pay', gross: 'Gross Pay' }
+              const formattedValue = Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              const seriesLabel = LABELS[String(name)] ?? 'Deductions'
+              return [formattedValue, seriesLabel]
+            }}
             contentStyle={{
               borderRadius: '8px',
               border: '1px solid #e5e7eb',

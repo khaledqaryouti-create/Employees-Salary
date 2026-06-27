@@ -5,13 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-export function DownloadPayslipButton({
-  itemId,
-  periodLabel,
-}: {
-  itemId: string
-  periodLabel: string
-}) {
+interface DownloadPayslipButtonProps {
+  readonly itemId: string
+  readonly periodLabel: string
+}
+
+export function DownloadPayslipButton({ itemId, periodLabel }: DownloadPayslipButtonProps) {
   const [loading, setLoading] = useState(false)
 
   async function handleDownload() {

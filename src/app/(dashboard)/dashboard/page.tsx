@@ -1,6 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { prisma } from '@/lib/prisma/client'
-import { redirect } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LinkButton } from '@/components/ui/link-button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -15,21 +14,14 @@ import {
   Plus,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/format'
+import { getTranslations } from 'next-intl/server'
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  const { profile, orgId } = await getProfileOrRedirect()
+  const t = await getTranslations('dashboard')
+  const tc = await getTranslations('common')
+  const tp = await getTranslations('payroll')
 
-  const profile = await prisma.profile.findUnique({
-    where: { id: user.id },
-    include: { organization: true },
-  })
-  if (!profile?.organizationId) redirect('/auth/login')
-
-  const orgId = profile.organizationId
-
-  // Fetch all KPIs in parallel
   const [
     totalEmployees,
     recentRuns,
@@ -59,38 +51,58 @@ export default async function DashboardPage() {
 
   const currency = profile.organization?.currency ?? 'USD'
 
+  const payrollStatusLabel: Record<string, string> = {
+    DRAFT: tp('draft'),
+    PROCESSING: tp('processing'),
+    PENDING_APPROVAL: tp('pendingApproval'),
+    APPROVED: tp('approved'),
+    PAID: tp('paid'),
+    FAILED: tp('failed'),
+    COMPLETED: tp('completed'),
+  }
+
+  const statusBadgeVariants: Record<string, string> = {
+    DRAFT: 'bg-gray-100 text-gray-600',
+    PROCESSING: 'bg-blue-100 text-blue-700',
+    PENDING_APPROVAL: 'bg-amber-100 text-amber-700',
+    APPROVED: 'bg-green-100 text-green-700',
+    PAID: 'bg-emerald-100 text-emerald-700',
+    FAILED: 'bg-red-100 text-red-700',
+    COMPLETED: 'bg-green-100 text-green-700',
+  }
+
   const kpis = [
     {
-      label: 'Active Employees',
+      label: t('activeEmployees'),
       value: totalEmployees.toString(),
       icon: Users,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
-      description: 'Across all departments',
+      description: t('acrossDepts'),
     },
     {
-      label: 'This Month Payroll',
+      label: t('totalPayroll'),
       value: thisMonthRun
         ? formatCurrency(thisMonthRun.totalGross, currency)
-        : 'Not run yet',
+        : tc('noData'),
       icon: Calculator,
       color: 'text-green-600',
       bg: 'bg-green-50',
       description: thisMonthRun
-        ? `${thisMonthRun.employeeCount} employees`
-        : 'Run payroll to see totals',
+        ? `${thisMonthRun.employeeCount} ${tc('employees')}`
+        : t('runPayrollToSee'),
     },
     {
-      label: 'Pending Approvals',
+      label: t('pendingLeave'),
       value: pendingLeaves.toString(),
       icon: Clock,
       color: 'text-amber-600',
       bg: 'bg-amber-50',
-      description: 'Leave requests awaiting action',
+      description: t('leaveAwaitingAction'),
     },
     {
-      label: 'Payroll Status',
-      value: thisMonthRun?.status ?? 'Not Started',
+      label: t('payrollStatus'),
+      value: thisMonthRun ? (payrollStatusLabel[thisMonthRun.status] ?? thisMonthRun.status) : t('notStarted'),
       icon: thisMonthRun?.status === 'APPROVED' ? CheckCircle2 : AlertCircle,
       color: thisMonthRun?.status === 'APPROVED' ? 'text-green-600' : 'text-gray-500',
       bg: thisMonthRun?.status === 'APPROVED' ? 'bg-green-50' : 'bg-gray-50',
@@ -103,7 +115,7 @@ export default async function DashboardPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
           <p className="text-sm text-gray-500 mt-1">
             {new Date().toLocaleDateString('en-US', {
               weekday: 'long',
@@ -116,7 +128,7 @@ export default async function DashboardPage() {
         <div className="flex items-center gap-3">
           <LinkButton href="/payroll/new">
             <Plus className="w-4 h-4 mr-2" />
-            Run Payroll
+            {t('runPayroll')}
           </LinkButton>
         </div>
       </div>
@@ -146,25 +158,25 @@ export default async function DashboardPage() {
         <Card className="xl:col-span-2 border-0 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <div>
-              <CardTitle className="text-base">Recent Payroll Runs</CardTitle>
-              <CardDescription>Latest payroll processing activity</CardDescription>
+              <CardTitle className="text-base">{t('recentPayrolls')}</CardTitle>
+              <CardDescription>{t('latestActivity')}</CardDescription>
             </div>
             <LinkButton variant="ghost" size="sm" href="/payroll" className="flex items-center gap-1">
-              View all <ArrowRight className="w-3 h-3" />
+              {t('viewAll')} <ArrowRight className="w-3 h-3" />
             </LinkButton>
           </CardHeader>
           <CardContent>
             {recentRuns.length === 0 ? (
               <div className="text-center py-10">
                 <Calculator className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 text-sm">No payroll runs yet</p>
+                <p className="text-gray-500 text-sm">{t('noRunsYet')}</p>
                 <LinkButton size="sm" className="mt-4" href="/payroll/new">
-                  Run your first payroll
+                  {t('startFirstPayroll')}
                 </LinkButton>
               </div>
             ) : (
               <div className="space-y-3">
-                {recentRuns.map((run: typeof recentRuns[number]) => (
+                {recentRuns.map((run) => (
                   <div
                     key={run.id}
                     className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors"
@@ -176,7 +188,7 @@ export default async function DashboardPage() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{run.name}</p>
                         <p className="text-xs text-gray-400">
-                          {run.employeeCount} employees · {run.periodYear}/{String(run.periodMonth).padStart(2, '0')}
+                          {run.employeeCount} {tc('employees')} · {run.periodYear}/{String(run.periodMonth).padStart(2, '0')}
                         </p>
                       </div>
                     </div>
@@ -184,7 +196,9 @@ export default async function DashboardPage() {
                       <span className="text-sm font-semibold text-gray-900 hidden sm:block">
                         {formatCurrency(run.totalNet, currency)}
                       </span>
-                      <StatusBadge status={run.status} />
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusBadgeVariants[run.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {payrollStatusLabel[run.status] ?? run.status}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -196,17 +210,17 @@ export default async function DashboardPage() {
         {/* Quick actions */}
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base">Quick Actions</CardTitle>
-            <CardDescription>Common tasks</CardDescription>
+            <CardTitle className="text-base">{t('quickActions')}</CardTitle>
+            <CardDescription>{t('commonTasks')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {[
-                { label: 'Add Employee', href: '/employees/new', icon: Users },
-                { label: 'Run Payroll', href: '/payroll/new', icon: Calculator },
-                { label: 'Review Leave Requests', href: '/leave', icon: Clock },
-                { label: 'Formula Builder', href: '/settings/formula-builder', icon: AlertCircle },
-                { label: 'View Reports', href: '/reports', icon: TrendingUp },
+                { label: t('addEmployee'), href: '/employees/new', icon: Users },
+                { label: t('runPayroll'), href: '/payroll/new', icon: Calculator },
+                { label: t('reviewLeave'), href: '/leave', icon: Clock },
+                { label: t('formulaBuilder'), href: '/settings/formula-builder', icon: AlertCircle },
+                { label: t('viewReports'), href: '/reports', icon: TrendingUp },
               ].map((action) => (
                 <LinkButton
                   key={action.href}
@@ -226,29 +240,12 @@ export default async function DashboardPage() {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const variants: Record<string, { label: string; className: string }> = {
-    DRAFT: { label: 'Draft', className: 'bg-gray-100 text-gray-600' },
-    PROCESSING: { label: 'Processing', className: 'bg-blue-100 text-blue-700' },
-    PENDING_APPROVAL: { label: 'Pending', className: 'bg-amber-100 text-amber-700' },
-    APPROVED: { label: 'Approved', className: 'bg-green-100 text-green-700' },
-    PAID: { label: 'Paid', className: 'bg-emerald-100 text-emerald-700' },
-    FAILED: { label: 'Failed', className: 'bg-red-100 text-red-700' },
-  }
-  const v = variants[status] ?? { label: status, className: 'bg-gray-100 text-gray-600' }
-  return (
-    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${v.className}`}>
-      {v.label}
-    </span>
-  )
-}
-
 export function DashboardSkeleton() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <Skeleton key={i} className="h-28 rounded-xl" />
+        {(['stat-1', 'stat-2', 'stat-3', 'stat-4'] as const).map((id) => (
+          <Skeleton key={id} className="h-28 rounded-xl" />
         ))}
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">

@@ -1,6 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { prisma } from '@/lib/prisma/client'
-import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FileText } from 'lucide-react'
@@ -11,19 +10,14 @@ const MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
 
 export default async function PayslipsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
-
-  const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-  if (!profile?.organizationId) redirect('/auth/login')
+  const { profile, orgId } = await getProfileOrRedirect()
 
   const isEmployee = profile.role === 'EMPLOYEE'
 
   // Find this user's employee record if they are an employee
   const employeeRecord = isEmployee
     ? await prisma.employee.findFirst({
-        where: { profile: { id: profile.id }, organizationId: profile.organizationId },
+        where: { profile: { id: profile.id }, organizationId: orgId },
         select: { id: true },
       })
     : null
@@ -32,7 +26,7 @@ export default async function PayslipsPage() {
     where: {
       ...(isEmployee && employeeRecord
         ? { employeeId: employeeRecord.id }
-        : { payrollRun: { organizationId: profile.organizationId } }),
+        : { payrollRun: { organizationId: orgId } }),
       hasError: false,
     },
     include: {
@@ -115,3 +109,4 @@ export default async function PayslipsPage() {
     </div>
   )
 }
+

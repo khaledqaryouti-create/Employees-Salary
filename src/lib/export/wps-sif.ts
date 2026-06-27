@@ -64,7 +64,7 @@ export function generateWPSCSV(header: WPSHeader, employees: WPSEmployee[]): str
   const headers = ['Employee Number', 'Full Name', 'IBAN', 'Basic Salary', 'Allowances', 'Deductions', 'Net Pay', 'Currency']
   const rows = employees.map((emp) => [
     emp.employeeNumber,
-    `"${emp.fullName.replace(/"/g, '""')}"`,
+    `"${emp.fullName.replaceAll('"', '""')}"`,
     emp.iban,
     emp.basicSalary.toFixed(2),
     emp.allowances.toFixed(2),

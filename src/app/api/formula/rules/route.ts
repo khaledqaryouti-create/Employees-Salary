@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma/client'
 import { success, error, handlePrismaError } from '@/lib/errors/api-response'
 import { logger } from '@/lib/errors/logger'
+import { logActivity } from '@/lib/system-log'
 import { z } from 'zod'
 
 const createRuleSchema = z.object({
@@ -46,6 +47,10 @@ export async function POST(request: Request) {
     })
 
     logger.info('Formula rule created', { ruleId: rule.id, orgId: profile?.organizationId ?? undefined })
+    if (profile?.organizationId) {
+      await logActivity(profile.organizationId, profile.id, profile.email,
+        'RULE_CREATED', { type: 'PayrollRule', id: rule.id }, { name: rule.name, type: rule.type })
+    }
     return success(rule)
   } catch (err) {
     logger.error('POST /api/formula/rules failed', { error: err })

@@ -1,24 +1,17 @@
-import { createClient } from '@/lib/supabase/server'
+import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { prisma } from '@/lib/prisma/client'
-import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { BarChart3, TrendingUp, Users, DollarSign, Globe } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/format'
 import { PayrollTrendChart } from './payroll-trend-chart'
 import { CountryBreakdownChart } from './country-breakdown-chart'
+import { getTranslations } from 'next-intl/server'
 
 export default async function ReportsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  const { orgId } = await getProfileOrRedirect()
+  const t = await getTranslations('reports')
 
-  const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-  if (!profile?.organizationId) redirect('/auth/login')
-
-  const orgId = profile.organizationId
-
-  // ── Summary stats ──────────────────────────────────────────────────────────
   const [
     totalEmployees,
     activeEmployees,
@@ -56,14 +49,12 @@ export default async function ReportsPage() {
     }),
   ])
 
-  // Aggregate net pay by country from recent items
   const countryPayMap: Record<string, number> = {}
   for (const item of recentItems) {
     const c = item.employee.country
     countryPayMap[c] = (countryPayMap[c] ?? 0) + item.netPay
   }
 
-  // Trend data for chart
   const trendData = payrollRuns.map((r) => ({
     label: `${r.periodYear}-${String(r.periodMonth).padStart(2, '0')}`,
     gross: r.totalGross ?? 0,
@@ -84,38 +75,38 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-        <p className="text-sm text-gray-500 mt-1">Organization-wide payroll insights</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('analytics')}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t('orgInsights')}</p>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           icon={<Users className="w-5 h-5 text-blue-600" />}
-          label="Active Employees"
+          label={t('activeEmployees')}
           value={String(activeEmployees)}
-          sub={`${totalEmployees} total`}
+          sub={t('totalLabel', { count: totalEmployees })}
           bg="bg-blue-50"
         />
         <KpiCard
           icon={<DollarSign className="w-5 h-5 text-green-600" />}
-          label="Latest Net Payroll"
+          label={t('latestNetPayroll')}
           value={formatCurrency(latestRun?.totalNet ?? 0, 'USD')}
-          sub={`${latestRun?.employeeCount ?? 0} employees`}
+          sub={`${latestRun?.employeeCount ?? 0} ${t('employees')}`}
           bg="bg-green-50"
         />
         <KpiCard
           icon={<BarChart3 className="w-5 h-5 text-purple-600" />}
-          label="Total Paid (All Time)"
+          label={t('totalPaidAllTime')}
           value={formatCurrency(totalPayroll, 'USD')}
-          sub={`${payrollRuns.length} runs`}
+          sub={t('runsCount', { count: payrollRuns.length })}
           bg="bg-purple-50"
         />
         <KpiCard
           icon={<Globe className="w-5 h-5 text-orange-600" />}
-          label="Countries"
+          label={t('countries')}
           value={String(countryBreakdown.length)}
-          sub="active payroll countries"
+          sub={t('activePayrollCountries')}
           bg="bg-orange-50"
         />
       </div>
@@ -127,14 +118,14 @@ export default async function ReportsPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-gray-500" />
-              <CardTitle className="text-base">Payroll Trend</CardTitle>
+              <CardTitle className="text-base">{t('payrollTrend')}</CardTitle>
             </div>
-            <CardDescription>Net pay over the last 12 months</CardDescription>
+            <CardDescription>{t('netPayTrend')}</CardDescription>
           </CardHeader>
           <CardContent>
             {trendData.length === 0 ? (
               <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
-                No payroll data yet
+                {t('noData')}
               </div>
             ) : (
               <PayrollTrendChart data={trendData} />
@@ -147,14 +138,14 @@ export default async function ReportsPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-gray-500" />
-              <CardTitle className="text-base">By Country</CardTitle>
+              <CardTitle className="text-base">{t('byCountry')}</CardTitle>
             </div>
-            <CardDescription>Employee distribution</CardDescription>
+            <CardDescription>{t('employeeDistribution')}</CardDescription>
           </CardHeader>
           <CardContent>
             {countryData.length === 0 ? (
               <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
-                No employees yet
+                {t('noEmployees')}
               </div>
             ) : (
               <CountryBreakdownChart data={countryData} />
@@ -166,18 +157,18 @@ export default async function ReportsPage() {
       {/* Country detail table */}
       <Card className="border-0 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base">Country Breakdown</CardTitle>
-          <CardDescription>Employees and recent payroll by country</CardDescription>
+          <CardTitle className="text-base">{t('countryBreakdown')}</CardTitle>
+          <CardDescription>{t('countryBreakdownDesc')}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
-                  <th className="text-left font-medium text-gray-500 px-6 py-3">Country</th>
-                  <th className="text-right font-medium text-gray-500 px-6 py-3">Employees</th>
-                  <th className="text-right font-medium text-gray-500 px-6 py-3">Recent Net Pay</th>
-                  <th className="text-right font-medium text-gray-500 px-6 py-3">Avg Net / Employee</th>
+                  <th className="text-left font-medium text-gray-500 px-6 py-3">{t('country')}</th>
+                  <th className="text-right font-medium text-gray-500 px-6 py-3">{t('employees')}</th>
+                  <th className="text-right font-medium text-gray-500 px-6 py-3">{t('recentNetPay')}</th>
+                  <th className="text-right font-medium text-gray-500 px-6 py-3">{t('avgNetEmployee')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -206,13 +197,15 @@ export default async function ReportsPage() {
   )
 }
 
-function KpiCard({ icon, label, value, sub, bg }: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  sub: string
-  bg: string
-}) {
+interface KpiCardProps {
+  readonly icon: React.ReactNode
+  readonly label: string
+  readonly value: string
+  readonly sub: string
+  readonly bg: string
+}
+
+function KpiCard({ icon, label, value, sub, bg }: KpiCardProps) {
   return (
     <Card className="border-0 shadow-sm">
       <CardContent className="p-4">

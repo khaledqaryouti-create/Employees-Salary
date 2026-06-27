@@ -36,8 +36,8 @@ export async function POST(request: Request) {
   // Build numeric context (filter out non-numeric)
   const numericContext: Record<string, number> = {}
   for (const [k, v] of Object.entries(context)) {
-    const n = typeof v === 'number' ? v : parseFloat(String(v))
-    if (!isNaN(n)) numericContext[k] = n
+    const n = typeof v === 'number' ? v : Number.parseFloat(String(v))
+    if (!Number.isNaN(n)) numericContext[k] = n
   }
 
   const result = evaluateFormula(

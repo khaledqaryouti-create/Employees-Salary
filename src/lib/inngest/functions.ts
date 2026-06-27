@@ -16,13 +16,12 @@ export const processPayrollRun = inngest.createFunction(
   async ({ event, step }) => {
     const payrollRunId = ((event as unknown) as { data: { payrollRunId: string } }).data.payrollRunId
 
-    const payrollRun = await step.run('set-processing', async () => {
-      const run = await prisma.payrollRun.update({
+    const payrollRun = await step.run('set-processing', () =>
+      prisma.payrollRun.update({
         where: { id: payrollRunId },
         data: { status: 'PROCESSING' },
       })
-      return run
-    })
+    )
 
     await step.run('execute-payroll', async () => {
       await runPayroll({

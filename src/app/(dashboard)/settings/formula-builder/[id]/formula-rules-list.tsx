@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useRuleEditor } from './use-rule-editor'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,13 +26,19 @@ import type { Prisma } from '@prisma/client'
 type Rule = Prisma.PayrollRuleGetPayload<Record<string, never>>
 type Variable = Prisma.FormulaVariableGetPayload<Record<string, never>>
 
+interface AllowanceTypeOption {
+  id: string
+  name: string
+}
+
 interface Props {
-  ruleSetId: string
-  rules: Rule[]
-  variables: Variable[]
-  isDefault: boolean
-  organizationId: string | null
-  ruleSetOrgId: string | null
+  readonly ruleSetId: string
+  readonly rules: Rule[]
+  readonly variables: Variable[]
+  readonly allowanceTypes: AllowanceTypeOption[]
+  readonly isDefault: boolean
+  readonly organizationId: string | null
+  readonly ruleSetOrgId: string | null
 }
 
 const DEFAULT_CONTEXT = {
@@ -45,85 +52,24 @@ const DEFAULT_CONTEXT = {
   unpaidLeaveDays: 0,
 }
 
-export function FormulaRulesList({ ruleSetId, rules: initialRules, variables, isDefault, ruleSetOrgId, organizationId }: Props) {
-  const [rules, setRules] = useState<Rule[]>(initialRules)
-  const [editingId, setEditingId] = useState<string | null>(null)
+export function FormulaRulesList({ ruleSetId, rules: initialRules, variables, allowanceTypes, isDefault, ruleSetOrgId, organizationId }: Props) {
   const [showNewForm, setShowNewForm] = useState(false)
   const [testContext, setTestContext] = useState(DEFAULT_CONTEXT)
-  const [previewResults, setPreviewResults] = useState<Record<string, { value: number | null; error: string | null }>>({})
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [saving, setSaving] = useState<string | null>(null)
 
   const canEdit = !isDefault || ruleSetOrgId === organizationId
 
-  async function testFormula(formula: string, ruleId: string) {
-    setPreviewLoading(true)
-    try {
-      const res = await fetch('/api/formula/evaluate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formula, context: testContext }),
-      })
-      const json = await res.json() as { ok: boolean; data?: { valid: boolean; result: number | null; error: string | null } }
-      if (json.ok && json.data) {
-        setPreviewResults((prev) => ({ ...prev, [ruleId]: { value: json.data!.result, error: json.data!.error } }))
-      }
-    } catch {
-      toast.error('Preview failed. Please try again.')
-    } finally {
-      setPreviewLoading(false)
-    }
-  }
-
-  async function saveRule(ruleId: string, data: Partial<Rule>) {
-    setSaving(ruleId)
-    try {
-      const res = await fetch(`/api/formula/rules/${ruleId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      const json = await res.json() as { ok: boolean; data?: Rule; message?: string }
-      if (!json.ok) {
-        toast.error(json.message ?? 'Failed to save rule')
-        return
-      }
-      setRules((prev) => prev.map((r) => r.id === ruleId ? { ...r, ...json.data } : r))
-      setEditingId(null)
-      toast.success('Rule saved successfully')
-    } catch {
-      toast.error('Failed to save rule. Please try again.')
-    } finally {
-      setSaving(null)
-    }
-  }
-
-  async function runAllPreviews() {
-    setPreviewLoading(true)
-    const results: Record<string, { value: number | null; error: string | null }> = {}
-
-    await Promise.all(
-      rules.map(async (rule) => {
-        try {
-          const res = await fetch('/api/formula/evaluate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ formula: rule.formula, context: testContext }),
-          })
-          const json = await res.json() as { ok: boolean; data?: { valid: boolean; result: number | null; error: string | null } }
-          if (json.ok && json.data) {
-            results[rule.id] = { value: json.data.result, error: json.data.error }
-          }
-        } catch {
-          results[rule.id] = { value: null, error: 'Preview failed' }
-        }
-      })
-    )
-
-    setPreviewResults(results)
-    setPreviewLoading(false)
-    toast.success(`Previewed ${rules.length} rules`)
-  }
+  const {
+    rules,
+    editingId,
+    saving,
+    previewResults,
+    previewLoading,
+    setEditingId,
+    saveRule,
+    testFormula,
+    runAllPreviews,
+    addRule,
+  } = useRuleEditor({ initialRules, testContext })
 
   return (
     <div className="space-y-6">
@@ -146,7 +92,7 @@ export function FormulaRulesList({ ruleSetId, rules: initialRules, variables, is
                 <Input
                   type="number"
                   value={value}
-                  onChange={(e) => setTestContext((prev) => ({ ...prev, [key]: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setTestContext((prev) => ({ ...prev, [key]: Number.parseFloat(e.target.value) || 0 }))}
                   className="h-8 text-sm"
                 />
               </div>
@@ -204,10 +150,10 @@ export function FormulaRulesList({ ruleSetId, rules: initialRules, variables, is
           <NewRuleForm
             ruleSetId={ruleSetId}
             variables={variables}
+            allowanceTypes={allowanceTypes}
             onSaved={(newRule) => {
-              setRules((prev) => [...prev, newRule])
-              setShowNewForm(false)
-              toast.success('Rule added successfully')
+              addRule(newRule)
+              toast.success('Rule added. You can add another or press Done when finished.')
             }}
             onCancel={() => setShowNewForm(false)}
           />
@@ -215,6 +161,19 @@ export function FormulaRulesList({ ruleSetId, rules: initialRules, variables, is
       </div>
     </div>
   )
+}
+
+interface RuleCardProps {
+  readonly rule: Rule
+  readonly index: number
+  readonly variables: Variable[]
+  readonly previewResult: { value: number | null; error: string | null } | null
+  readonly isEditing: boolean
+  readonly isSaving: boolean
+  readonly canEdit: boolean
+  readonly onEdit: () => void
+  readonly onSave: (data: Partial<Rule>) => void
+  readonly onPreview: (formula: string) => void
 }
 
 function RuleCard({
@@ -228,18 +187,7 @@ function RuleCard({
   onEdit,
   onSave,
   onPreview,
-}: {
-  rule: Rule
-  index: number
-  variables: Variable[]
-  previewResult: { value: number | null; error: string | null } | null
-  isEditing: boolean
-  isSaving: boolean
-  canEdit: boolean
-  onEdit: () => void
-  onSave: (data: Partial<Rule>) => void
-  onPreview: (formula: string) => void
-}) {
+}: RuleCardProps) {
   const [formula, setFormula] = useState(rule.formula)
 
   const typeColors: Record<string, string> = {
@@ -252,10 +200,11 @@ function RuleCard({
     <Card className="border-0 shadow-sm">
       <CardContent className="p-4">
         {/* Header row */}
-        <div
-          className="flex items-center gap-3 cursor-pointer"
+        <button
+          type="button"
+          className="flex items-center gap-3 cursor-pointer w-full text-left bg-transparent border-0 p-0"
           onClick={canEdit ? onEdit : undefined}
-          role={canEdit ? 'button' : undefined}
+          disabled={!canEdit}
         >
           <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-500 shrink-0">
             {index}
@@ -266,7 +215,7 @@ function RuleCard({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Badge className={`text-xs ${typeColors[rule.type] ?? 'bg-gray-100 text-gray-600'}`}>
-              {rule.type.replace('_', ' ')}
+              {rule.type.replaceAll('_', ' ')}
             </Badge>
             {previewResult && (
               <span className={`text-xs font-mono font-semibold ${previewResult.error ? 'text-red-500' : 'text-green-600'}`}>
@@ -277,7 +226,7 @@ function RuleCard({
               isEditing ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />
             )}
           </div>
-        </div>
+        </button>
 
         {/* Edit panel */}
         {isEditing && canEdit && (
@@ -329,6 +278,7 @@ function RuleCard({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
                   {variables.map((v) => (
                     <button
+                      type="button"
                       key={v.id}
                       className="text-left p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors"
                       onClick={() => setFormula((f) => f + v.key)}
@@ -380,22 +330,31 @@ function RuleCard({
   )
 }
 
-function NewRuleForm({
-  ruleSetId,
-  variables,
-  onSaved,
-  onCancel,
-}: {
-  ruleSetId: string
-  variables: Variable[]
-  onSaved: (rule: Rule) => void
-  onCancel: () => void
-}) {
+function toCamelCase(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word, i) => i === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1))
+    .join('')
+}
+
+interface NewRuleFormProps {
+  readonly ruleSetId: string
+  readonly variables: Variable[]
+  readonly allowanceTypes: AllowanceTypeOption[]
+  readonly onSaved: (rule: Rule) => void
+  readonly onCancel: () => void
+}
+
+function NewRuleForm({ ruleSetId, variables, allowanceTypes, onSaved, onCancel }: NewRuleFormProps) {
   const [name, setName] = useState('')
   const [formula, setFormula] = useState('')
   const [type, setType] = useState<'EARNING' | 'DEDUCTION' | 'EMPLOYER_COST'>('EARNING')
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState<{ value: number | null; error: string | null } | null>(null)
+  const [selectedAllowanceId, setSelectedAllowanceId] = useState<string | undefined>(undefined)
 
   async function handleSave() {
     if (!name.trim() || !formula.trim()) {
@@ -415,6 +374,11 @@ function NewRuleForm({
         return
       }
       onSaved(json.data)
+      setName('')
+      setFormula('')
+      setType('EARNING')
+      setSelectedAllowanceId(undefined)
+      setPreview(null)
     } catch {
       toast.error('Failed to create rule')
     } finally {
@@ -438,6 +402,30 @@ function NewRuleForm({
         <CardTitle className="text-sm">New Rule</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {allowanceTypes.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Allowance Type (optional)</Label>
+            <Select value={selectedAllowanceId} onValueChange={(v) => {
+              const value = v as string
+              setSelectedAllowanceId(value)
+              const found = allowanceTypes.find((t) => t.id === value)
+              if (found) {
+                setName(found.name)
+                setType('EARNING')
+                setFormula(toCamelCase(found.name))
+              }
+            }}>
+              <SelectTrigger><SelectValue placeholder="Pick an allowance type to pre-fill…" /></SelectTrigger>
+              <SelectContent>
+                {allowanceTypes.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-400">Selecting one pre-fills the name, type, and formula variable. You can edit the formula freely.</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label className="text-xs">Rule Name *</Label>
@@ -467,6 +455,7 @@ function NewRuleForm({
           <div className="flex flex-wrap gap-1 mt-1">
             {variables.slice(0, 8).map((v) => (
               <button
+                type="button"
                 key={v.id}
                 className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-0.5 rounded font-mono transition-colors"
                 onClick={() => setFormula((f) => f + v.key)}
@@ -492,10 +481,11 @@ function NewRuleForm({
             {saving ? 'Saving…' : 'Add Rule'}
           </Button>
           <Button size="sm" variant="ghost" onClick={onCancel}>
-            Cancel
+            Done
           </Button>
         </div>
       </CardContent>
     </Card>
   )
 }
+

@@ -158,9 +158,9 @@ How can I help you today?`,
                   }`}
                   dangerouslySetInnerHTML={{
                     __html: msg.content
-                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                      .replace(/\n/g, '<br />')
-                      .replace(/•/g, '•'),
+                      .replaceAll(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                      .replaceAll(/\n/g, '<br />')
+                      .replaceAll(/•/g, '•'),
                   }}
                 />
                 {msg.content === '' && loading && (

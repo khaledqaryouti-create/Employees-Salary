@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma/client'
-import { evaluateFormula } from '@/lib/formula-engine/evaluator'
+import { evaluateFormula, type FormulaContext } from '@/lib/formula-engine/evaluator'
 import { buildFormulaContext } from '@/lib/formula-engine/context-builder'
 import { logger } from '@/lib/errors/logger'
 
@@ -22,6 +22,76 @@ export interface EmployeePayrollResult {
   employerCostJson: Record<string, number>
   hasError: boolean
   errorMessage?: string
+}
+
+async function loadActiveRuleSet(orgId: string, country: string) {
+  return prisma.countryRuleSet.findFirst({
+    where: {
+      OR: [
+        { organizationId: orgId, country, isActive: true },
+        { organizationId: null, country, isDefault: true, isActive: true },
+      ],
+    },
+    include: {
+      rules: {
+        where: { isActive: true },
+        orderBy: { order: 'asc' },
+      },
+    },
+    orderBy: { organizationId: 'desc' }, // org-specific rule set takes priority
+  })
+}
+
+async function buildConfigMap(orgId: string, country: string): Promise<Record<string, string>> {
+  const configRows = await prisma.configValue.findMany({
+    where: { organizationId: orgId, country },
+  })
+  const map: Record<string, string> = {}
+  for (const row of configRows) {
+    map[row.key] = row.value
+  }
+  return map
+}
+
+type RuleSet = NonNullable<Awaited<ReturnType<typeof loadActiveRuleSet>>>
+type Employee = NonNullable<Awaited<ReturnType<typeof prisma.employee.findUnique>>>
+
+function evaluateRules(
+  rules: RuleSet['rules'],
+  employee: Employee,
+  context: FormulaContext,
+  orgId: string,
+): {
+  earningsJson: Record<string, number>
+  deductionsJson: Record<string, number>
+  employerCostJson: Record<string, number>
+} {
+  const earningsJson: Record<string, number> = {}
+  const deductionsJson: Record<string, number> = {}
+  const employerCostJson: Record<string, number> = {}
+
+  for (const rule of rules) {
+    if (rule.applicableTo !== 'ALL' && rule.applicableTo !== employee.employmentType) continue
+
+    const result = evaluateFormula(rule.formula, context, orgId)
+    if (!result.ok) {
+      logger.warn('Formula evaluation failed for rule', { orgId, ruleId: rule.id, ruleName: rule.name, message: result.message })
+      continue
+    }
+
+    const contextKey = rule.name
+      .toLowerCase()
+      .replaceAll(/[^a-z0-9]/g, '_')
+      .replaceAll(/_+/g, '_')
+      .replace(/^_|_$/g, '')
+    context[contextKey] = result.value
+
+    if (rule.type === 'EARNING') earningsJson[rule.name] = result.value
+    else if (rule.type === 'DEDUCTION') deductionsJson[rule.name] = result.value
+    else if (rule.type === 'EMPLOYER_COST') employerCostJson[rule.name] = result.value
+  }
+
+  return { earningsJson, deductionsJson, employerCostJson }
 }
 
 /**
@@ -53,82 +123,14 @@ export async function processEmployeePayroll(
       return makeErrorResult(employeeId, 'No salary structure assigned to this employee')
     }
 
-    // Load the active rule set for this employee's country
-    const ruleSet = await prisma.countryRuleSet.findFirst({
-      where: {
-        OR: [
-          { organizationId: orgId, country: employee.country, isActive: true },
-          { organizationId: null, country: employee.country, isDefault: true, isActive: true },
-        ],
-      },
-      include: {
-        rules: {
-          where: { isActive: true },
-          orderBy: { order: 'asc' },
-        },
-      },
-      orderBy: { organizationId: 'desc' }, // org-specific rule set takes priority
-    })
-
+    const ruleSet = await loadActiveRuleSet(orgId, employee.country)
     if (!ruleSet) {
       return makeErrorResult(employeeId, `No active rule set found for country: ${employee.country}`)
     }
 
-    // Load config values (rates, thresholds) for this country
-    const configRows = await prisma.configValue.findMany({
-      where: { organizationId: orgId, country: employee.country },
-    })
-    const configMap: Record<string, string> = {}
-    for (const row of configRows) {
-      configMap[row.key] = row.value
-    }
-
-    // Build formula context
+    const configMap = await buildConfigMap(orgId, employee.country)
     const context = buildFormulaContext(employee, configMap, periodYear, periodMonth)
-
-    const earningsJson: Record<string, number> = {}
-    const deductionsJson: Record<string, number> = {}
-    const employerCostJson: Record<string, number> = {}
-
-    // Evaluate each rule in order
-    for (const rule of ruleSet.rules) {
-      // Check employment type applicability
-      if (rule.applicableTo !== 'ALL' && rule.applicableTo !== employee.employmentType) {
-        continue
-      }
-
-      const result = evaluateFormula(rule.formula, context, orgId)
-
-      if (!result.ok) {
-        logger.warn('Formula evaluation failed for rule', {
-          orgId,
-          ruleId: rule.id,
-          ruleName: rule.name,
-          message: result.message,
-          employeeId,
-        })
-        continue
-      }
-
-      const value = result.value
-
-      // Store result and update context so subsequent rules can reference it
-      const contextKey = rule.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '')
-
-      context[contextKey] = value
-
-      if (rule.type === 'EARNING') {
-        earningsJson[rule.name] = value
-      } else if (rule.type === 'DEDUCTION') {
-        deductionsJson[rule.name] = value
-      } else if (rule.type === 'EMPLOYER_COST') {
-        employerCostJson[rule.name] = value
-      }
-    }
+    const { earningsJson, deductionsJson, employerCostJson } = evaluateRules(ruleSet.rules, employee, context, orgId)
 
     const basicSalary = employee.salaryStructure.basicSalary
     const totalEarnings = Object.values(earningsJson).reduce((s, v) => s + v, 0)

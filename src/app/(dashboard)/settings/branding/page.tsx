@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -12,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Palette, Globe, Building2 } from 'lucide-react'
+import { Palette, Globe, Building2, Loader2 } from 'lucide-react'
 
 const schema = z.object({
   name: z.string().min(2),
@@ -45,37 +46,85 @@ const CURRENCIES = ['USD', 'EUR', 'SAR', 'AED', 'KWD', 'QAR', 'BHD', 'OMR',
 
 export default function BrandingPage() {
   const router = useRouter()
-  const [saving, setSaving] = useState(false)
+  const t = useTranslations('settings')
+  const tc = useTranslations('common')
+  const [saving, setSaving]   = useState(false)
+  const [loading, setLoading] = useState(true)
   const [primaryColor, setPrimaryColor] = useState('#2563eb')
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { primaryColor: '#2563eb', payrollCycle: 'MONTHLY', dateFormat: 'DD/MM/YYYY' },
   })
 
+  useEffect(() => {
+    fetch('/api/settings/branding')
+      .then(r => r.json())
+      .then(({ org, branding }) => {
+        if (org) {
+          reset({
+            name:         org.name          ?? '',
+            displayName:  org.displayName   ?? '',
+            contactEmail: org.contactEmail  ?? '',
+            website:      org.website       ?? '',
+            address:      org.address       ?? '',
+            country:      org.country       ?? '',
+            currency:     org.currency      ?? 'USD',
+            payrollCycle: (org.payFrequency as FormData['payrollCycle']) ?? 'MONTHLY',
+            dateFormat:   org.dateFormat    ?? 'DD/MM/YYYY',
+            primaryColor: branding?.primaryColor ?? '#2563eb',
+          })
+          const color = branding?.primaryColor ?? '#2563eb'
+          setPrimaryColor(color)
+        }
+      })
+      .catch(() => { /* use defaults */ })
+      .finally(() => setLoading(false))
+  }, [reset])
+
   const onSubmit = async (data: FormData) => {
     setSaving(true)
     try {
-      const res = await fetch('/api/admin/tenants/branding', {
+      const res = await fetch('/api/settings/branding', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          name:         data.name,
+          displayName:  data.displayName  || null,
+          contactEmail: data.contactEmail || null,
+          website:      data.website      || null,
+          address:      data.address      || null,
+          dateFormat:   data.dateFormat,
+          country:      data.country      || null,
+          currency:     data.currency,
+          payFrequency: data.payrollCycle,
+          primaryColor: data.primaryColor,
+        }),
       })
-      if (!res.ok) throw new Error(await res.text())
-      toast.success('Branding settings saved successfully')
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Failed to save')
+      toast.success(t('savedSuccess'))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save settings')
+      toast.error(err instanceof Error ? err.message : tc('error'))
     } finally {
       setSaving(false)
     }
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Tenant Branding & Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Customize your organization&apos;s appearance and regional preferences</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('brandingTitle')}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t('brandingDesc')}</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -84,35 +133,35 @@ export default function BrandingPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Building2 className="w-5 h-5 text-blue-600" />
-              <CardTitle className="text-base">Organization Details</CardTitle>
+              <CardTitle className="text-base">{t('orgDetails')}</CardTitle>
             </div>
-            <CardDescription>Core information about your organization</CardDescription>
+            <CardDescription>{t('orgDetailsDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Organization Name *</Label>
+                <Label>{t('orgNameRequired')}</Label>
                 <Input {...register('name')} placeholder="Acme Corp" />
                 {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label>Display Name</Label>
+                <Label>{t('displayName')}</Label>
                 <Input {...register('displayName')} placeholder="Acme" />
               </div>
               <div className="space-y-1.5">
-                <Label>Contact Email</Label>
+                <Label>{t('contactEmail')}</Label>
                 <Input {...register('contactEmail')} type="email" placeholder="hr@acme.com" />
                 {errors.contactEmail && <p className="text-xs text-red-500">{errors.contactEmail.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label>Website</Label>
+                <Label>{t('website')}</Label>
                 <Input {...register('website')} placeholder="https://acme.com" />
               </div>
             </div>
             <div className="space-y-1.5">
-                <Label>Address</Label>
-                <Textarea {...register('address')} placeholder="Street, City, Country" rows={2} className="resize-none" />
-              </div>
+              <Label>{t('address')}</Label>
+              <Textarea {...register('address')} placeholder="Street, City, Country" rows={2} className="resize-none" />
+            </div>
           </CardContent>
         </Card>
 
@@ -121,16 +170,16 @@ export default function BrandingPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Globe className="w-5 h-5 text-blue-600" />
-              <CardTitle className="text-base">Regional Settings</CardTitle>
+              <CardTitle className="text-base">{t('regionalSettings')}</CardTitle>
             </div>
-            <CardDescription>Configure locale, currency, and payroll cycle</CardDescription>
+            <CardDescription>{t('regionalSettingsDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label>Country</Label>
+                <Label>{tc('country')}</Label>
                 <Select onValueChange={(v: string | null) => { if (v) setValue('country', v) }}>
-                  <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={tc('selectCountry')} /></SelectTrigger>
                   <SelectContent>
                     {COUNTRIES.map((c) => (
                       <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
@@ -139,30 +188,30 @@ export default function BrandingPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Default Currency</Label>
+                <Label>{tc('defaultCurrency')}</Label>
                 <Select onValueChange={(v: string | null) => { if (v) setValue('currency', v) }}>
-                  <SelectTrigger><SelectValue placeholder="Currency" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={tc('currency')} /></SelectTrigger>
                   <SelectContent>
                     {CURRENCIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Payroll Cycle</Label>
+                <Label>{t('payrollCycle')}</Label>
                 <Select
                   defaultValue="MONTHLY"
                   onValueChange={(v) => { if (v) setValue('payrollCycle', v as 'MONTHLY' | 'BIWEEKLY' | 'WEEKLY') }}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="MONTHLY">Monthly</SelectItem>
-                    <SelectItem value="BIWEEKLY">Bi-Weekly</SelectItem>
-                    <SelectItem value="WEEKLY">Weekly</SelectItem>
+                    <SelectItem value="MONTHLY">{t('monthly')}</SelectItem>
+                    <SelectItem value="BIWEEKLY">{t('biweekly')}</SelectItem>
+                    <SelectItem value="WEEKLY">{t('weekly')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Date Format</Label>
+                <Label>{t('dateFormat')}</Label>
                 <Select
                   defaultValue="DD/MM/YYYY"
                   onValueChange={(v) => { if (v) setValue('dateFormat', v) }}
@@ -184,14 +233,14 @@ export default function BrandingPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Palette className="w-5 h-5 text-blue-600" />
-              <CardTitle className="text-base">Brand Colors</CardTitle>
+              <CardTitle className="text-base">{t('brandColors')}</CardTitle>
             </div>
-            <CardDescription>Customize the look and feel of your tenant portal</CardDescription>
+            <CardDescription>{t('brandColorsDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="space-y-1.5 flex-1">
-                <Label>Primary Color</Label>
+                <Label>{t('primaryColor')}</Label>
                 <div className="flex items-center gap-3">
                   <input
                     type="color"
@@ -217,7 +266,7 @@ export default function BrandingPage() {
                 className="w-20 h-20 rounded-xl border border-gray-100 shadow-sm flex items-center justify-center"
                 style={{ backgroundColor: primaryColor }}
               >
-                <span className="text-white text-xs font-bold">Preview</span>
+                <span className="text-white text-xs font-bold">{t('preview')}</span>
               </div>
             </div>
           </CardContent>
@@ -225,7 +274,7 @@ export default function BrandingPage() {
 
         <div className="flex justify-end">
           <Button type="submit" disabled={saving} className="min-w-32">
-            {saving ? 'Saving…' : 'Save Changes'}
+            {saving ? tc('saving') : tc('saveChanges')}
           </Button>
         </div>
       </form>

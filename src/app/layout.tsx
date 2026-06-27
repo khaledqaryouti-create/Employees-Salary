@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
+import { NextIntlClientProvider } from 'next-intl'
+import { getLocale, getMessages } from 'next-intl/server'
+import { isRtl } from '@/i18n/locales'
+import type { Locale } from '@/i18n/locales'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const inter = Inter({ subsets: ['latin', 'latin-ext'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
   title: {
@@ -11,7 +15,6 @@ export const metadata: Metadata = {
     template: '%s | PayrollPro',
   },
   description: 'Enterprise payroll management for GCC, Asia, North Africa, and Italy',
-  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -25,16 +28,22 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+interface RootLayoutProps {
+  readonly children: React.ReactNode
+}
+
+export default async function RootLayout({ children }: RootLayoutProps) {
+  const locale = await getLocale()
+  const messages = await getMessages()
+  const dir = isRtl(locale as Locale) ? 'rtl' : 'ltr'
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} dir={dir} suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
-        <Toaster richColors position="top-right" />
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {children}
+          <Toaster richColors position={dir === 'rtl' ? 'top-left' : 'top-right'} />
+        </NextIntlClientProvider>
       </body>
     </html>
   )

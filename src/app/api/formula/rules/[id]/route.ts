@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma/client'
 import { success, error, handlePrismaError } from '@/lib/errors/api-response'
 import { logger } from '@/lib/errors/logger'
+import { logActivity } from '@/lib/system-log'
 import { z } from 'zod'
 
 const patchSchema = z.object({
@@ -36,6 +37,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     })
 
     logger.info('Formula rule updated', { ruleId: rule.id, orgId: profile?.organizationId ?? undefined })
+    if (profile?.organizationId) {
+      await logActivity(profile.organizationId, profile.id, profile.email,
+        'RULE_UPDATED', { type: 'PayrollRule', id: rule.id }, { name: rule.name })
+    }
     return success(rule)
   } catch (err) {
     logger.error('PATCH /api/formula/rules/[id] failed', { error: err })
@@ -57,6 +62,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     await prisma.payrollRule.delete({ where: { id } })
     logger.info('Formula rule deleted', { ruleId: id, orgId: profile?.organizationId ?? undefined })
+    if (profile?.organizationId) {
+      await logActivity(profile.organizationId, profile.id, profile.email,
+        'RULE_DELETED', { type: 'PayrollRule', id }, {})
+    }
     return success({ deleted: true })
   } catch (err) {
     logger.error('DELETE /api/formula/rules/[id] failed', { error: err })

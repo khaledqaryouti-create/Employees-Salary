@@ -1,6 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { prisma } from '@/lib/prisma/client'
-import { redirect } from 'next/navigation'
 import { LinkButton } from '@/components/ui/link-button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -9,28 +8,21 @@ import { Users, Plus, Download } from 'lucide-react'
 import { EmployeesTable } from './employees-table'
 
 export default async function EmployeesPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
-
-  const profile = await prisma.profile.findUnique({
-    where: { id: user.id },
-  })
-  if (!profile?.organizationId) redirect('/auth/login')
+  const { orgId } = await getProfileOrRedirect()
 
   const [employees, totalCount, countByCountry] = await Promise.all([
     prisma.employee.findMany({
-      where: { organizationId: profile.organizationId },
-      include: { salaryStructure: true },
+      where: { organizationId: orgId },
+      include: { salaryStructure: true, orgUnit: { select: { name: true } } },
       orderBy: { createdAt: 'desc' },
       take: 50,
     }),
     prisma.employee.count({
-      where: { organizationId: profile.organizationId, isActive: true },
+      where: { organizationId: orgId, isActive: true },
     }),
     prisma.employee.groupBy({
       by: ['country'],
-      where: { organizationId: profile.organizationId, isActive: true },
+      where: { organizationId: orgId, isActive: true },
       _count: { id: true },
       orderBy: { _count: { id: 'desc' } },
       take: 5,

@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-  if (!profile || !profile.organizationId) {
+  if (!profile?.organizationId) {
     return NextResponse.json({ error: 'No organization' }, { status: 403 })
   }
 

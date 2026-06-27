@@ -1,6 +1,13 @@
 import type { NextConfig } from 'next'
+import createNextIntlPlugin from 'next-intl/plugin'
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const deploy = require('./deployment.config') as { port: number; basePath: string; host: string }
+
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 
 const nextConfig: NextConfig = {
+  basePath: deploy.basePath || undefined,
   async headers() {
     return [
       {
@@ -37,9 +44,11 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ['localhost:8080'],
+      allowedOrigins: [
+        `${deploy.host.replace(/^https?:\/\//, '')}:${deploy.port}`,
+      ],
     },
   },
 }
 
-export default nextConfig
+export default withNextIntl(nextConfig)

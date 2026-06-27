@@ -18,16 +18,16 @@ const requestSchema = z.object({
 // PII scrubber — removes names, emails, phone numbers, IBANs
 function scrubPII(text: string): string {
   return text
-    // Email addresses
-    .replace(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, '[EMAIL]')
+    // Email — domain uses non-dot groups separated by explicit dots to prevent ReDoS backtracking
+    .replaceAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+/g, '[EMAIL]')
     // Phone numbers (various formats)
-    .replace(/\+?[\d\s\-().]{10,}/g, '[PHONE]')
+    .replaceAll(/\+?[\d\s\-.()]{10,}/g, '[PHONE]')
     // IBANs
-    .replace(/[A-Z]{2}\d{2}[A-Z0-9]{4,}/g, '[IBAN]')
+    .replaceAll(/[A-Z]{2}\d{2}[A-Z0-9]{4,}/g, '[IBAN]')
     // Saudi National ID / Iqama
-    .replace(/\b[12]\d{9}\b/g, '[ID_NUMBER]')
+    .replaceAll(/\b[12]\d{9}\b/g, '[ID_NUMBER]')
     // Common PII patterns in Arabic names (approximation)
-    .replace(/\b(Mr|Mrs|Ms|Dr)\.\s+[A-Z][a-z]+(\s+[A-Z][a-z]+)?\b/g, '[NAME]')
+    .replaceAll(/\b(Mr|Mrs|Ms|Dr)\.\s+[A-Z][a-z]+(\s+[A-Z][a-z]+)?\b/g, '[NAME]')
 }
 
 const SYSTEM_PROMPT = `You are PayrollPro AI, an expert payroll assistant for HR and finance teams.
@@ -85,13 +85,11 @@ export async function POST(request: Request) {
       },
     }).catch(() => {}) // Non-blocking
 
-    // The `messages` param type from streamText requires non-undefined;
-    // our scrubbedMessages array is always defined after the parse check.
     type StreamMessages = NonNullable<Parameters<typeof streamText>[0]['messages']>
     const result = streamText({
       model: openai('gpt-4o'),
       system: SYSTEM_PROMPT,
-      messages: scrubbedMessages as StreamMessages,
+      messages: scrubbedMessages as StreamMessages, // safe: array is always defined after parse check
       temperature: 0.3,
     })
 

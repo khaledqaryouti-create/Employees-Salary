@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma/client'
 import { success, error, handlePrismaError } from '@/lib/errors/api-response'
 import { logger } from '@/lib/errors/logger'
@@ -59,8 +59,9 @@ export async function POST(request: Request) {
       data: { name, slug, country: country ?? undefined, isActive: true },
     })
 
-    // Invite the admin user via Supabase Auth
-    const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(adminEmail, {
+    // Invite the admin user via Supabase Auth (requires service role key)
+    const adminClient = createAdminClient()
+    const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(adminEmail, {
       data: { full_name: adminName, organization_id: org.id, role: 'TENANT_ADMIN' },
     })
 

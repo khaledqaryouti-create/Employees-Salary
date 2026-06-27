@@ -1,39 +1,43 @@
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma/client'
 import { runPayroll } from '@/lib/payroll-engine/engine'
 import { success, error, handlePrismaError } from '@/lib/errors/api-response'
 import { logger } from '@/lib/errors/logger'
+import { getActiveBranchId } from '@/lib/auth/active-branch'
+import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { z } from 'zod'
 
 const createRunSchema = z.object({
-  name: z.string().optional(),
+  name:        z.string().optional(),
   periodMonth: z.number().int().min(1).max(12),
-  periodYear: z.number().int().min(2000).max(2100),
-  currency: z.string().default('USD'),
+  periodYear:  z.number().int().min(2000).max(2100),
+  currency:    z.string().default('USD'),
+  force:       z.boolean().optional(),
 })
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return error('UNAUTHORIZED', 'Authentication required', 401)
-
-    const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-    if (!profile || !profile.organizationId) return error('FORBIDDEN', 'No organization assigned', 403)
+    const { orgId } = await getProfileOrRedirect()
 
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') ?? '1')
-    const limit = Math.min(parseInt(searchParams.get('limit') ?? '20'), 50)
+    const page = Number.parseInt(searchParams.get('page') ?? '1')
+    const limit = Math.min(Number.parseInt(searchParams.get('limit') ?? '20'), 50)
+
+    const activeBranchId = await getActiveBranchId(orgId)
+    const payrollWhere = {
+      organizationId: orgId,
+      ...(activeBranchId && { branchId: activeBranchId }),
+    }
 
     const [data, total] = await Promise.all([
       prisma.payrollRun.findMany({
-        where: { organizationId: profile.organizationId },
+        where: payrollWhere,
         include: { _count: { select: { items: true } } },
         orderBy: { createdAt: 'desc' },
         take: limit,
         skip: (page - 1) * limit,
       }),
-      prisma.payrollRun.count({ where: { organizationId: profile.organizationId } }),
+      prisma.payrollRun.count({ where: payrollWhere }),
     ])
 
     return success({ data, total, page, limit })
@@ -45,16 +49,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return error('UNAUTHORIZED', 'Authentication required', 401)
-
-    const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-    if (!profile || !profile.organizationId) return error('FORBIDDEN', 'No organization assigned', 403)
+    const { profile, orgId } = await getProfileOrRedirect()
     if (!['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN', 'PAYROLL_ADMIN'].includes(profile.role)) {
       return error('FORBIDDEN', 'You do not have permission to run payroll', 403)
     }
-    const orgId = profile.organizationId
+    const activeBranchIdForRun = await getActiveBranchId(orgId)
 
     const body: unknown = await request.json()
     const parsed = createRunSchema.safeParse(body)
@@ -65,7 +64,7 @@ export async function POST(request: Request) {
     // Check for duplicate run
     const existing = await prisma.payrollRun.findFirst({
       where: {
-        organizationId: profile.organizationId,
+        organizationId: orgId,
         periodMonth: parsed.data.periodMonth,
         periodYear: parsed.data.periodYear,
         status: { in: ['PROCESSING', 'PENDING_APPROVAL', 'APPROVED', 'PAID'] },
@@ -73,17 +72,34 @@ export async function POST(request: Request) {
     })
 
     if (existing) {
-      return error(
-        'CONFLICT',
-        `A payroll run for ${parsed.data.periodMonth}/${parsed.data.periodYear} already exists (${existing.status})`,
-        409
-      )
+      // Finalised runs can never be overridden
+      if (['APPROVED', 'PAID'].includes(existing.status)) {
+        return error(
+          'CONFLICT',
+          `This payroll run is already ${existing.status} and cannot be overridden.`,
+          409
+        )
+      }
+
+      if (!parsed.data.force) {
+        // Return structured conflict so the UI can show the override dialog
+        return NextResponse.json({
+          ok: false,
+          code: 'CONFLICT',
+          existingStatus: existing.status,
+          message: `A payroll run for ${parsed.data.periodMonth}/${parsed.data.periodYear} already exists (${existing.status})`,
+        }, { status: 409 })
+      }
+
+      // force=true: delete the existing run (items cascade via onDelete: Cascade)
+      await prisma.payrollRun.delete({ where: { id: existing.id } })
     }
 
     // Create the run record first, then process
     const newRun = await prisma.payrollRun.create({
       data: {
         organizationId: orgId,
+        branchId: activeBranchIdForRun ?? undefined,
         name: parsed.data.name,
         periodMonth: parsed.data.periodMonth,
         periodYear: parsed.data.periodYear,
@@ -101,7 +117,7 @@ export async function POST(request: Request) {
 
     logger.info('Payroll run completed', {
       runId: newRun.id,
-      orgId: profile.organizationId,
+      orgId,
     })
 
     const run = await prisma.payrollRun.findUnique({ where: { id: newRun.id } })

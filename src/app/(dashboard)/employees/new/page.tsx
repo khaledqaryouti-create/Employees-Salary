@@ -1,32 +1,34 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LinkButton } from '@/components/ui/link-button'
-import { Loader2, ArrowLeft } from 'lucide-react'
+import { Loader2, ArrowLeft, Building2 } from 'lucide-react'
 
 const schema = z.object({
   employeeNumber: z.string().min(1, 'Required'),
-  fullName: z.string().min(2, 'At least 2 characters'),
-  email: z.string().email('Invalid email'),
-  phone: z.string().optional(),
-  nationality: z.string().optional(),
-  country: z.string().min(1, 'Required'),
-  department: z.string().optional(),
-  jobTitle: z.string().optional(),
+  firstName:      z.string().min(1, 'First name is required'),
+  secondName:     z.string().optional(),
+  thirdName:      z.string().optional(),
+  lastName:       z.string().min(1, 'Last name is required'),
+  email:          z.string().email('Invalid email'),
+  phone:          z.string().optional(),
+  nationality:    z.string().optional(),
+  country:        z.string().min(1, 'Required'),
+  jobTitle:       z.string().optional(),
   employmentType: z.enum(['LOCAL', 'EXPATRIATE', 'CONTRACT', 'PART_TIME']),
-  joinDate: z.string().min(1, 'Required'),
-  basicSalary: z.coerce.number().positive('Must be positive'),
-  currency: z.string().min(1, 'Required'),
+  joinDate:       z.string().min(1, 'Required'),
+  orgUnitId:      z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -52,31 +54,34 @@ const COUNTRIES = [
   { value: 'IT', label: 'Italy' },
 ]
 
-const CURRENCIES = [
-  { value: 'SAR', label: 'SAR — Saudi Riyal' },
-  { value: 'AED', label: 'AED — UAE Dirham' },
-  { value: 'KWD', label: 'KWD — Kuwaiti Dinar' },
-  { value: 'BHD', label: 'BHD — Bahraini Dinar' },
-  { value: 'QAR', label: 'QAR — Qatari Riyal' },
-  { value: 'OMR', label: 'OMR — Omani Rial' },
-  { value: 'INR', label: 'INR — Indian Rupee' },
-  { value: 'PHP', label: 'PHP — Philippine Peso' },
-  { value: 'SGD', label: 'SGD — Singapore Dollar' },
-  { value: 'MYR', label: 'MYR — Malaysian Ringgit' },
-  { value: 'IDR', label: 'IDR — Indonesian Rupiah' },
-  { value: 'JPY', label: 'JPY — Japanese Yen' },
-  { value: 'CNY', label: 'CNY — Chinese Yuan' },
-  { value: 'EGP', label: 'EGP — Egyptian Pound' },
-  { value: 'MAD', label: 'MAD — Moroccan Dirham' },
-  { value: 'TND', label: 'TND — Tunisian Dinar' },
-  { value: 'LYD', label: 'LYD — Libyan Dinar' },
-  { value: 'EUR', label: 'EUR — Euro' },
-  { value: 'USD', label: 'USD — US Dollar' },
-]
+interface NationalityOption { id: string; name: string }
+interface JobTitleOption   { id: string; name: string }
+
+interface OrgLevelOption {
+  id: string
+  name: string
+  depth: number
+  color: string | null
+}
+
+interface OrgUnitOption {
+  id: string
+  name: string
+  parentId: string | null
+  level: { name: string; depth: number; color: string | null }
+  parent: { name: string } | null
+}
 
 export default function NewEmployeePage() {
   const router = useRouter()
+  const t = useTranslations('employees')
+  const tc = useTranslations('common')
   const [loading, setLoading] = useState(false)
+  const [nationalities, setNationalities] = useState<NationalityOption[]>([])
+  const [jobTitles,     setJobTitles]     = useState<JobTitleOption[]>([])
+  const [orgUnits,      setOrgUnits]      = useState<OrgUnitOption[]>([])
+  const [orgLevels,     setOrgLevels]     = useState<OrgLevelOption[]>([])
+  const [selections,    setSelections]    = useState<Record<number, string>>({})
 
   const {
     register,
@@ -85,8 +90,51 @@ export default function NewEmployeePage() {
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema) as Resolver<FormData>,
-    defaultValues: { employmentType: 'LOCAL', currency: 'USD' },
+    defaultValues: { employmentType: 'LOCAL' },
   })
+
+  /** Update selections at depth D and clear all deeper levels. */
+  const handleLevelChange = useCallback((depth: number, unitId: string) => {
+    setSelections((prev) => {
+      const next: Record<number, string> = {}
+      for (const [d, v] of Object.entries(prev)) {
+        if (Number(d) < depth) next[Number(d)] = v
+      }
+      if (unitId && unitId !== 'none') next[depth] = unitId
+      return next
+    })
+    setValue('orgUnitId', unitId && unitId !== 'none' ? unitId : '')
+  }, [setValue])
+
+  useEffect(() => {
+    fetch('/api/nationalities?activeOnly=true')
+      .then((r) => r.json())
+      .then((json: { ok: boolean; data?: NationalityOption[] }) => {
+        if (json.ok && json.data) setNationalities(json.data)
+      })
+      .catch(() => {/* silently ignore */})
+
+    fetch('/api/job-titles')
+      .then((r) => r.json())
+      .then((json: { ok: boolean; data?: JobTitleOption[] }) => {
+        if (json.ok && json.data) setJobTitles(json.data)
+      })
+      .catch(() => {/* silently ignore */})
+
+    fetch('/api/org-units')
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        if (Array.isArray(data)) setOrgUnits(data as OrgUnitOption[])
+      })
+      .catch(() => {/* silently ignore */})
+
+    fetch('/api/org-unit-levels')
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        if (Array.isArray(data)) setOrgLevels(data as OrgLevelOption[])
+      })
+      .catch(() => {/* silently ignore */})
+  }, [])
 
   async function onSubmit(data: FormData) {
     setLoading(true)
@@ -118,11 +166,11 @@ export default function NewEmployeePage() {
       <div className="flex items-center gap-4">
         <LinkButton variant="ghost" href="/employees" size="sm">
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Back
+          {tc('back')}
         </LinkButton>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Add Employee</h1>
-          <p className="text-sm text-gray-500">Fill in the employee details below</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('addTitle')}</h1>
+          <p className="text-sm text-gray-500">{t('addDesc')}</p>
         </div>
       </div>
 
@@ -130,24 +178,42 @@ export default function NewEmployeePage() {
         {/* Personal Information */}
         <Card className="border-0 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">Personal Information</CardTitle>
+            <CardTitle className="text-base">{t('personalInfo')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Full Name" error={errors.fullName?.message} required>
-                <Input placeholder="Ahmed Al-Rashidi" {...register('fullName')} />
+              <Field label="First Name" error={errors.firstName?.message} required>
+                <Input placeholder="Ahmed" {...register('firstName')} />
               </Field>
-              <Field label="Employee Number" error={errors.employeeNumber?.message} required>
+              <Field label="Last Name" error={errors.lastName?.message} required>
+                <Input placeholder="Al-Rashidi" {...register('lastName')} />
+              </Field>
+              <Field label="Second Name" error={errors.secondName?.message}>
+                <Input placeholder="Mohammed" {...register('secondName')} />
+              </Field>
+              <Field label="Third Name" error={errors.thirdName?.message}>
+                <Input placeholder="Abdullah" {...register('thirdName')} />
+              </Field>
+              <Field label={t('employeeNumber')} error={errors.employeeNumber?.message} required>
                 <Input placeholder="EMP-001" {...register('employeeNumber')} />
               </Field>
-              <Field label="Email Address" error={errors.email?.message} required>
+              <Field label={t('emailAddress')} error={errors.email?.message} required>
                 <Input type="email" placeholder="ahmed@company.com" {...register('email')} />
               </Field>
-              <Field label="Phone Number" error={errors.phone?.message}>
+              <Field label={t('phoneNumber')} error={errors.phone?.message}>
                 <Input placeholder="+966 50 000 0000" {...register('phone')} />
               </Field>
-              <Field label="Nationality" error={errors.nationality?.message}>
-                <Input placeholder="Saudi Arabian" {...register('nationality')} />
+              <Field label={t('nationality')} error={errors.nationality?.message}>
+                <Select onValueChange={(v) => setValue('nationality', (v as string | null) ?? undefined)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={tc('select')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {nationalities.map((n) => (
+                      <SelectItem key={n.id} value={n.name}>{n.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
             </div>
           </CardContent>
@@ -156,14 +222,14 @@ export default function NewEmployeePage() {
         {/* Employment Details */}
         <Card className="border-0 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">Employment Details</CardTitle>
+            <CardTitle className="text-base">{t('employmentDetails')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Country" error={errors.country?.message} required>
+              <Field label={t('workCountry')} error={errors.country?.message} required>
                 <Select onValueChange={(v) => { if (typeof v === 'string' && v) setValue('country', v) }}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select country" />
+                    <SelectValue placeholder={tc('select')} />
                   </SelectTrigger>
                   <SelectContent>
                     {COUNTRIES.map((c) => (
@@ -172,7 +238,7 @@ export default function NewEmployeePage() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Employment Type" error={errors.employmentType?.message} required>
+              <Field label={t('employmentType')} error={errors.employmentType?.message} required>
                 <Select
                   defaultValue="LOCAL"
                   onValueChange={(v) => { if (v) setValue('employmentType', v as FormData['employmentType']) }}
@@ -181,67 +247,97 @@ export default function NewEmployeePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="LOCAL">Local</SelectItem>
-                    <SelectItem value="EXPATRIATE">Expatriate</SelectItem>
-                    <SelectItem value="CONTRACT">Contract</SelectItem>
-                    <SelectItem value="PART_TIME">Part Time</SelectItem>
+                    <SelectItem value="LOCAL">{t('local')}</SelectItem>
+                    <SelectItem value="EXPATRIATE">{t('expatriate')}</SelectItem>
+                    <SelectItem value="CONTRACT">{t('contract')}</SelectItem>
+                    <SelectItem value="PART_TIME">{t('partTime')}</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Department" error={errors.department?.message}>
-                <Input placeholder="Finance" {...register('department')} />
-              </Field>
-              <Field label="Job Title" error={errors.jobTitle?.message}>
-                <Input placeholder="Accountant" {...register('jobTitle')} />
-              </Field>
-              <Field label="Join Date" error={errors.joinDate?.message} required>
-                <Input type="date" {...register('joinDate')} />
-              </Field>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Salary */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Basic Salary</CardTitle>
-            <CardDescription>Additional allowances can be added after creating the employee</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Basic Salary" error={errors.basicSalary?.message} required>
-                <Input
-                  type="number"
-                  placeholder="5000"
-                  step="0.01"
-                  min="0"
-                  {...register('basicSalary')}
-                />
-              </Field>
-              <Field label="Currency" error={errors.currency?.message} required>
-                <Select defaultValue="USD" onValueChange={(v) => { if (v) setValue('currency', v) }}>
+              <Field label={t('jobTitle')} error={errors.jobTitle?.message}>
+                <Select onValueChange={(v) => setValue('jobTitle', (v as string | null) ?? undefined)}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder={tc('select')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {CURRENCIES.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    {jobTitles.map((jt) => (
+                      <SelectItem key={jt.id} value={jt.name}>{jt.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </Field>
+              <Field label={t('joinDate')} error={errors.joinDate?.message} required>
+                <Input type="date" {...register('joinDate')} />
+              </Field>
             </div>
+
+            {/* Dynamic cascading org-level dropdowns */}
+            {orgLevels.length > 0 && (
+              <div className="space-y-3 pt-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Company Structure
+                </p>
+                {orgLevels.map((level) => {
+                  const available =
+                    level.depth === 0
+                      ? orgUnits.filter((u) => u.level.depth === 0)
+                      : orgUnits.filter(
+                          (u) =>
+                            u.level.depth === level.depth &&
+                            u.parentId === (selections[level.depth - 1] ?? null)
+                        )
+                  const parentSelected = level.depth === 0 || !!selections[level.depth - 1]
+                  return (
+                    <div key={level.id} className="space-y-1.5">
+                      <Label className="text-sm font-medium flex items-center gap-1.5">
+                        <Building2
+                          className="w-3.5 h-3.5 shrink-0"
+                          style={{ color: level.color ?? '#6b7280' }}
+                        />
+                        {level.name}
+                      </Label>
+                      <Select
+                        key={`${level.depth}-${selections[level.depth - 1] ?? 'root'}-${orgUnits.length}`}
+                        value={selections[level.depth] ?? ''}
+                        onValueChange={(v) => handleLevelChange(level.depth, v ?? '')}
+                        disabled={!parentSelected}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={`Select ${level.name}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">— None —</SelectItem>
+                          {available.length === 0 ? (
+                            <SelectItem value="" disabled>
+                              {parentSelected
+                                ? `No ${level.name.toLowerCase()} units found`
+                                : `Select a ${orgLevels.find((l) => l.depth === level.depth - 1)?.name ?? 'parent'} first`}
+                            </SelectItem>
+                          ) : (
+                            available.map((u) => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3">
-          <LinkButton variant="outline" href="/employees">Cancel</LinkButton>
+          <LinkButton variant="outline" href="/employees">{tc('cancel')}</LinkButton>
           <Button type="submit" disabled={loading} className="min-w-[140px]">
             {loading ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</>
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('saving')}</>
             ) : (
-              'Create Employee'
+              t('createEmployee')
             )}
           </Button>
         </div>
@@ -250,17 +346,14 @@ export default function NewEmployeePage() {
   )
 }
 
-function Field({
-  label,
-  error,
-  required,
-  children,
-}: {
-  label: string
-  error?: string
-  required?: boolean
-  children: React.ReactNode
-}) {
+interface FieldProps {
+  readonly label: string
+  readonly error?: string
+  readonly required?: boolean
+  readonly children: React.ReactNode
+}
+
+function Field({ label, error, required, children }: FieldProps) {
   return (
     <div className="space-y-1.5">
       <Label className="text-sm font-medium">

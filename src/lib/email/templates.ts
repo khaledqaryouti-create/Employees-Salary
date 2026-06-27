@@ -79,7 +79,7 @@ export function leaveStatusHtml(data: LeaveApprovedEmailData): string {
     <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 20px 0;">
       <p style="margin: 0 0 8px; font-size: 14px;"><strong>From:</strong> ${data.startDate}</p>
       <p style="margin: 0 0 8px; font-size: 14px;"><strong>To:</strong> ${data.endDate}</p>
-      <p style="margin: 0; font-size: 14px;"><strong>Duration:</strong> ${data.days} day${data.days !== 1 ? 's' : ''}</p>
+      <p style="margin: 0; font-size: 14px;"><strong>Duration:</strong> ${data.days} day${data.days === 1 ? '' : 's'}</p>
       ${data.reason ? `<p style="margin: 8px 0 0; font-size: 14px;"><strong>Note:</strong> ${data.reason}</p>` : ''}
     </div>`
   )

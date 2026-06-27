@@ -38,3 +38,12 @@ Thumbs.db
 .idea/
 .vscode/settings.json
 *.swp
+
+# Build debug temp files
+build-out.txt
+build-err.txt
+build-output.txt
+
+# Cursor IDE
+.cursor/
+

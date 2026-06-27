@@ -17,11 +17,11 @@ import { formatCurrency } from '@/lib/utils/format'
 import type { Prisma } from '@prisma/client'
 
 type EmployeeWithSalary = Prisma.EmployeeGetPayload<{
-  include: { salaryStructure: true }
+  include: { salaryStructure: true; orgUnit: { select: { name: true } } }
 }>
 
 interface EmployeesTableProps {
-  employees: EmployeeWithSalary[]
+  readonly employees: EmployeeWithSalary[]
 }
 
 export function EmployeesTable({ employees }: EmployeesTableProps) {
@@ -32,7 +32,7 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
     e.fullName.toLowerCase().includes(search.toLowerCase()) ||
     e.email.toLowerCase().includes(search.toLowerCase()) ||
     e.employeeNumber.toLowerCase().includes(search.toLowerCase()) ||
-    e.department?.toLowerCase().includes(search.toLowerCase()) ||
+    (e.orgUnit?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
     e.country.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -83,11 +83,11 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                   <span className="text-sm">{employee.country}</span>
                 </TableCell>
                 <TableCell>
-                  <span className="text-sm text-gray-600">{employee.department ?? '—'}</span>
+                  <span className="text-sm text-gray-600">{employee.orgUnit?.name ?? '—'}</span>
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="text-xs">
-                    {employee.employmentType.replace('_', ' ')}
+                    {employee.employmentType.replaceAll('_', ' ')}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
@@ -130,7 +130,7 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
           >
             <div className="min-w-0 flex-1">
               <p className="font-medium text-gray-900 truncate">{employee.fullName}</p>
-              <p className="text-xs text-gray-400 truncate">{employee.country} · {employee.department ?? 'No department'}</p>
+              <p className="text-xs text-gray-400 truncate">{employee.country} · {employee.orgUnit?.name ?? 'No department'}</p>
               <p className="text-xs text-gray-500 mt-0.5">
                 {employee.salaryStructure
                   ? formatCurrency(employee.salaryStructure.basicSalary, employee.salaryStructure.currency)

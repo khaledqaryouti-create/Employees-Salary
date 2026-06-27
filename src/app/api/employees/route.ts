@@ -1,41 +1,47 @@
-import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma/client'
 import { success, error, handlePrismaError } from '@/lib/errors/api-response'
 import { logger } from '@/lib/errors/logger'
+import { logActivity } from '@/lib/system-log'
+import { getActiveBranchId } from '@/lib/auth/active-branch'
+import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { z } from 'zod'
 
 const createEmployeeSchema = z.object({
   employeeNumber: z.string().min(1, 'Employee number is required'),
-  fullName: z.string().min(2, 'Full name is required'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().optional(),
-  nationality: z.string().optional(),
-  country: z.string().min(1, 'Country is required'),
-  department: z.string().optional(),
-  jobTitle: z.string().optional(),
+  firstName:      z.string().min(1, 'First name is required'),
+  secondName:     z.string().optional(),
+  thirdName:      z.string().optional(),
+  lastName:       z.string().min(1, 'Last name is required'),
+  email:          z.string().email('Invalid email address'),
+  phone:          z.string().optional(),
+  nationality:    z.string().optional(),
+  country:        z.string().min(1, 'Country is required'),
+  jobTitle:       z.string().optional(),
+  orgUnitId:      z.string().optional(),
   employmentType: z.enum(['LOCAL', 'EXPATRIATE', 'CONTRACT', 'PART_TIME']),
-  joinDate: z.string().min(1, 'Join date is required'),
-  basicSalary: z.number().positive('Salary must be positive'),
-  currency: z.string().default('USD'),
+  joinDate:       z.string().min(1, 'Join date is required'),
+  basicSalary:    z.coerce.number().nonnegative().optional().default(0),
+  currency:       z.string().default('USD'),
 })
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return error('UNAUTHORIZED', 'Authentication required', 401)
-
-    const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-    if (!profile?.organizationId) return error('FORBIDDEN', 'No organization assigned', 403)
+    const { orgId } = await getProfileOrRedirect()
 
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') ?? '1')
-    const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 100)
+    const page = Number.parseInt(searchParams.get('page') ?? '1')
+    const limit = Math.min(Number.parseInt(searchParams.get('limit') ?? '50'), 100)
     const search = searchParams.get('search') ?? ''
     const country = searchParams.get('country') ?? ''
 
+    // Apply branch scoping: filter employees whose orgUnit belongs to the active branch
+    const activeBranchId = await getActiveBranchId(orgId)
+
     const where = {
-      organizationId: profile.organizationId,
+      organizationId: orgId,
+      ...(activeBranchId && {
+        orgUnit: { branchId: activeBranchId },
+      }),
       ...(search && {
         OR: [
           { fullName: { contains: search, mode: 'insensitive' as const } },
@@ -49,7 +55,7 @@ export async function GET(request: Request) {
     const [data, total] = await Promise.all([
       prisma.employee.findMany({
         where,
-        include: { salaryStructure: true },
+        include: { salaryStructure: true, orgUnit: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
         take: limit,
         skip: (page - 1) * limit,
@@ -66,12 +72,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return error('UNAUTHORIZED', 'Authentication required', 401)
-
-    const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-    if (!profile?.organizationId) return error('FORBIDDEN', 'No organization assigned', 403)
+    const { profile, orgId, user } = await getProfileOrRedirect()
     if (!['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN'].includes(profile.role)) {
       return error('FORBIDDEN', 'You do not have permission to add employees', 403)
     }
@@ -83,12 +84,14 @@ export async function POST(request: Request) {
       return error('VALIDATION', firstIssue?.message ?? 'Invalid input', 400, firstIssue?.path.join('.'))
     }
 
-    const { basicSalary, currency, ...employeeData } = parsed.data
+    const { basicSalary, currency, firstName, secondName, thirdName, lastName, ...rest } = parsed.data
+    const fullName = [firstName, secondName, thirdName, lastName].filter(Boolean).join(' ')
+    const employeeData = { ...rest, firstName, secondName, thirdName, lastName, fullName }
 
     const employee = await prisma.employee.create({
       data: {
         ...employeeData,
-        organizationId: profile.organizationId,
+        organizationId: orgId,
         joinDate: new Date(employeeData.joinDate),
         salaryStructure: {
           create: {
@@ -100,7 +103,15 @@ export async function POST(request: Request) {
       include: { salaryStructure: true },
     })
 
-    logger.info('Employee created', { orgId: profile.organizationId, employeeId: employee.id, userId: user.id })
+    logger.info('Employee created', { orgId, employeeId: employee.id, userId: user.id })
+    await logActivity(
+      orgId,
+      profile.id,
+      profile.email,
+      'EMPLOYEE_CREATED',
+      { type: 'Employee', id: employee.id },
+      { name: employee.fullName, employeeNumber: employee.employeeNumber }
+    )
     return success(employee)
   } catch (err) {
     logger.error('POST /api/employees failed', { error: err })

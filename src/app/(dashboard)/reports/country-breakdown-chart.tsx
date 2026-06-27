@@ -16,10 +16,14 @@ interface CountryItem {
 }
 
 interface Props {
-  data: CountryItem[]
+  readonly data: CountryItem[]
 }
 
 const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6']
+
+function LegendLabel({ value }: { readonly value: string }) {
+  return <span style={{ fontSize: 11, color: '#6b7280' }}>{value}</span>
+}
 
 export function CountryBreakdownChart({ data }: Props) {
   const chartData = data.slice(0, 8).map((d) => ({
@@ -40,15 +44,15 @@ export function CountryBreakdownChart({ data }: Props) {
             paddingAngle={2}
             dataKey="value"
           >
-            {chartData.map((_, index) => (
+            {chartData.map((entry, index) => (
               <Cell
-                key={index}
+                key={entry.name}
                 fill={COLORS[index % COLORS.length]}
               />
             ))}
           </Pie>
           <Tooltip
-            formatter={(value, name) => [Number(value) + ' employees', name]}
+            formatter={(value, name) => [`${Number(value)} employees`, name]}
             contentStyle={{
               borderRadius: '8px',
               border: '1px solid #e5e7eb',
@@ -58,7 +62,7 @@ export function CountryBreakdownChart({ data }: Props) {
           <Legend
             iconSize={8}
             iconType="circle"
-            formatter={(value: string) => <span style={{ fontSize: 11, color: '#6b7280' }}>{value}</span>}
+            formatter={(value: string) => <LegendLabel value={value} />}
           />
         </PieChart>
       </ResponsiveContainer>

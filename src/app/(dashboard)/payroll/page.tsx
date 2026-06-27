@@ -1,13 +1,13 @@
-import { createClient } from '@/lib/supabase/server'
+import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { prisma } from '@/lib/prisma/client'
-import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { LinkButton } from '@/components/ui/link-button'
 import { Play, Plus, ChevronRight, Calendar, Users, DollarSign } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
+import { getTranslations } from 'next-intl/server'
 
-const statusColor: Record<string, string> = {
+const statusColorMap: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-600',
   PROCESSING: 'bg-yellow-100 text-yellow-700',
   COMPLETED: 'bg-green-100 text-green-700',
@@ -17,48 +17,48 @@ const statusColor: Record<string, string> = {
 }
 
 export default async function PayrollPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
-
-  const profile = await prisma.profile.findUnique({ where: { id: user.id } })
-  if (!profile?.organizationId) redirect('/auth/login')
+  const { orgId } = await getProfileOrRedirect()
+  const t = await getTranslations('payroll')
 
   const [runs, sumResult, countResult] = await Promise.all([
     prisma.payrollRun.findMany({
-      where: { organizationId: profile.organizationId },
+      where: { organizationId: orgId },
       include: { _count: { select: { items: true } } },
       orderBy: { createdAt: 'desc' },
       take: 20,
     }),
     prisma.payrollRun.aggregate({
-      where: {
-        organizationId: profile.organizationId,
-        status: 'PAID',
-      },
+      where: { organizationId: orgId, status: 'PAID' },
       _sum: { totalNet: true },
     }),
     prisma.payrollRun.count({
-      where: {
-        organizationId: profile.organizationId,
-        status: 'PAID',
-      },
+      where: { organizationId: orgId, status: 'PAID' },
     }),
   ])
+
+  const statusLabel: Record<string, string> = {
+    DRAFT: t('draft'),
+    PROCESSING: t('processing'),
+    PENDING_APPROVAL: t('pendingApproval'),
+    APPROVED: t('approved'),
+    PAID: t('paid'),
+    FAILED: t('failed'),
+    COMPLETED: t('completed'),
+  }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Payroll Runs</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('payrollRuns')}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {countResult} paid runs · {formatCurrency(sumResult._sum.totalNet ?? 0, 'USD')} total paid
+            {t('paidRunsSummary', { count: countResult, total: formatCurrency(sumResult._sum.totalNet ?? 0, 'USD') })}
           </p>
         </div>
         <LinkButton href="/payroll/new">
           <Plus className="w-4 h-4 mr-2" />
-          New Payroll Run
+          {t('newRun')}
         </LinkButton>
       </div>
 
@@ -66,19 +66,19 @@ export default async function PayrollPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           icon={<Play className="w-5 h-5 text-yellow-500" />}
-          label="In Progress"
+          label={t('inProgress')}
           value={String(runs.filter((r) => r.status === 'PROCESSING').length)}
           bg="bg-yellow-50"
         />
         <StatCard
           icon={<Calendar className="w-5 h-5 text-blue-500" />}
-          label="Awaiting Approval"
+          label={t('awaitingApproval')}
           value={String(runs.filter((r) => r.status === 'PENDING_APPROVAL').length)}
           bg="bg-blue-50"
         />
         <StatCard
           icon={<DollarSign className="w-5 h-5 text-green-500" />}
-          label="Total Paid (All Time)"
+          label={t('totalPaidAllTime')}
           value={formatCurrency(sumResult._sum.totalNet ?? 0, 'USD')}
           bg="bg-green-50"
         />
@@ -87,15 +87,15 @@ export default async function PayrollPage() {
       {/* Runs list */}
       <Card className="border-0 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base">Recent Runs</CardTitle>
+          <CardTitle className="text-base">{t('recentRuns')}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {runs.length === 0 ? (
             <div className="text-center py-16">
               <Play className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-              <p className="text-gray-500 font-medium">No payroll runs yet</p>
-              <p className="text-gray-400 text-sm mt-1">Create your first payroll run to get started</p>
-              <LinkButton href="/payroll/new" className="mt-6">Start First Payroll Run</LinkButton>
+              <p className="text-gray-500 font-medium">{t('noRuns')}</p>
+              <p className="text-gray-400 text-sm mt-1">{t('noRunsDesc')}</p>
+              <LinkButton href="/payroll/new" className="mt-6">{t('startFirst')}</LinkButton>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
@@ -118,7 +118,7 @@ export default async function PayrollPage() {
                         </span>
                         <span className="text-xs text-gray-400">
                           <Users className="w-3 h-3 inline mr-0.5" />
-                          {run._count.items} employees
+                          {t('employeesCount', { count: run._count.items })}
                         </span>
                         {run.totalNet != null && (
                           <span className="text-xs text-gray-600 font-medium">
@@ -128,8 +128,8 @@ export default async function PayrollPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      <Badge className={`text-xs ${statusColor[run.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {run.status}
+                      <Badge className={`text-xs ${statusColorMap[run.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {statusLabel[run.status] ?? run.status}
                       </Badge>
                       <ChevronRight className="w-4 h-4 text-gray-300" />
                     </div>
@@ -144,12 +144,14 @@ export default async function PayrollPage() {
   )
 }
 
-function StatCard({ icon, label, value, bg }: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  bg: string
-}) {
+interface StatCardProps {
+  readonly icon: React.ReactNode
+  readonly label: string
+  readonly value: string
+  readonly bg: string
+}
+
+function StatCard({ icon, label, value, bg }: StatCardProps) {
   return (
     <Card className="border-0 shadow-sm">
       <CardContent className="flex items-center gap-4 p-4">
