@@ -44,6 +44,7 @@ build-out.txt
 build-err.txt
 build-output.txt
 
-# Cursor IDE
-.cursor/
+# Cursor IDE — ignore everything except project rules
+.cursor/*
+!.cursor/rules/
 

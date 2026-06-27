@@ -1,0 +1,468 @@
+# SonarQube / ESLint Prevention Patterns
+
+These are the exact patterns that triggered SonarQube issues in this codebase and how to fix them. Follow these rules on every new file and edit to prevent regressions.
+
+---
+
+## React / JSX
+
+### S3735 — Remove `void` operator
+Never use `void fn()` to discard a promise. In `useEffect`, call the async function directly.
+
+```tsx
+// WRONG
+useEffect(() => { void loadData() }, [loadData])
+
+// CORRECT
+useEffect(() => { loadData() }, [loadData])
+```
+
+### S3358 — No nested ternaries
+Never nest one ternary inside another. Extract to `if/else` or a named variable before the JSX return.
+
+```tsx
+// WRONG
+{loading ? 'Saving…' : editing ? 'Save Changes' : 'Add'}
+
+// CORRECT
+const saveLabel = editing ? 'Save Changes' : 'Add'
+return <Button>{loading ? 'Saving…' : saveLabel}</Button>
+
+// WRONG — stacked ternary chain
+const rows = tab === 'A' ? listA : tab === 'B' ? listB : listC
+
+// CORRECT
+let rows: typeof listA
+if (tab === 'A') rows = listA
+else if (tab === 'B') rows = listB
+else rows = listC
+```
+
+### S6478 — No component definitions inside parent components
+Never define a React component inside another component or inside a `.map()` callback. Hoist it to module level and pass data as props.
+
+```tsx
+// WRONG
+function Parent() {
+  function Child({ value }: { value: string }) { ... }
+  return <Legend formatter={(v) => <Child value={v} />} />
+}
+
+// CORRECT
+function Child({ value }: Readonly<{ value: string }>) { ... }
+function renderChild(value: string) { return <Child value={value} /> }
+function Parent() {
+  return <Legend formatter={renderChild} />
+}
+```
+
+### S7735 — No negated conditions
+Always write the positive condition first and put the main path in the truthy branch.
+
+```tsx
+// WRONG
+{!s ? <EmptyState /> : <Content data={s} />}
+
+// CORRECT
+{s ? <Content data={s} /> : <EmptyState />}
+
+// WRONG — negated comparison
+return idx !== -1 ? arr[idx + 1] : undefined
+
+// CORRECT
+return idx === -1 ? undefined : arr[idx + 1]
+
+// WRONG — negated null check
+const hours = row.hours != null ? String(row.hours) : ''
+
+// CORRECT
+const hours = row.hours == null ? '' : String(row.hours)
+
+// WRONG — pluralization with negation
+`${count} result${count !== 1 ? 's' : ''}`
+
+// CORRECT
+`${count} result${count === 1 ? '' : 's'}`
+```
+
+### S6759 — Mark component props as read-only
+Always wrap inline prop types with `Readonly<>`. For named interfaces, add `readonly` to each field.
+
+```tsx
+// WRONG
+function Card({ title, count }: { title: string; count: number }) {}
+
+// CORRECT
+function Card({ title, count }: Readonly<{ title: string; count: number }>) {}
+
+// WRONG — named interface
+interface Props { title: string; count: number }
+
+// CORRECT
+interface Props { readonly title: string; readonly count: number }
+// or use Readonly<Props> at the function call site
+function Card({ title, count }: Readonly<Props>) {}
+```
+
+### next/link — Use `<Link>` for internal navigation
+Never use `<a href="/internal-path">` inside Next.js components. Import and use `Link` from `next/link`.
+
+```tsx
+// WRONG
+<a href="/settings/org-levels">Settings</a>
+
+// CORRECT
+import Link from 'next/link'
+<Link href="/settings/org-levels">Settings</Link>
+```
+
+### Unescaped entities in JSX
+Use HTML entities or JavaScript strings for quotes and special characters in JSX text.
+
+```tsx
+// WRONG
+<p>Don't use raw apostrophes</p>
+
+// CORRECT
+<p>Don&apos;t use raw apostrophes</p>
+// or
+<p>{"Don't use raw apostrophes"}</p>
+```
+
+### React `key` must be a primitive
+Never use an object as a `key` prop. Use a string or number property of the object.
+
+```tsx
+// WRONG — obj is Record<string, unknown>
+{items.map(item => <Tag key={item} />)}
+
+// CORRECT
+{items.map(item => <Tag key={item.id} />)}
+```
+
+---
+
+## Accessibility
+
+### S6848 / S1082 — Non-native interactive elements need keyboard support
+Any non-`<button>` element with an `onClick` handler must also have `role`, `tabIndex`, and `onKeyDown`.
+
+```tsx
+// WRONG
+<div onClick={() => select(item)}>...</div>
+
+// CORRECT
+<div
+  role="button"
+  tabIndex={0}
+  onClick={() => select(item)}
+  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') select(item) }}
+>...</div>
+```
+
+### S6853 — Associate form labels with controls
+Every `<label>` must reference its control via `htmlFor` / `id`. For Radix `<Select>`, use `aria-labelledby`.
+
+```tsx
+// WRONG
+<label>Level Name</label>
+<Input value={form.name} ... />
+
+// CORRECT
+<label htmlFor="level-name-input">Level Name</label>
+<Input id="level-name-input" value={form.name} ... />
+
+// For Select (no native id support):
+<label id="level-label">Level</label>
+<Select aria-labelledby="level-label" ...>
+```
+
+### S6772 — Avoid ambiguous JSX text spacing
+Do not leave punctuation (`.`, `,`) on its own line after a closing tag. Place it directly after the tag.
+
+```tsx
+// WRONG
+<a href="/path">link text</a>
+.
+
+// CORRECT
+<a href="/path">link text</a>.
+```
+
+---
+
+## TypeScript Patterns
+
+### Select `onValueChange` — null coalescing required
+The Radix `onValueChange` callback receives `string | null`. State setters typed as `(v: string) => void` will fail without coalescing.
+
+```tsx
+// WRONG — TS2322
+<Select onValueChange={setFilterValue} />
+
+// CORRECT
+<Select onValueChange={v => setFilterValue(v ?? '')} />
+```
+
+### Array index access — non-null assertion only inside length checks
+`arr[0]` is `T | undefined` with `noUncheckedIndexedAccess`. Use `!` only when the length is already verified.
+
+```tsx
+// WRONG — TS2532
+const first = items[0].name
+
+// CORRECT
+if (items.length > 0) {
+  const first = items[0]!.name
+}
+```
+
+### Global number functions — use `Number.*`
+ESLint `no-restricted-globals` bans the bare globals. Always prefix with `Number.`.
+
+```ts
+// WRONG
+parseInt('42')
+parseFloat('3.14')
+isNaN(value)
+
+// CORRECT
+Number.parseInt('42')
+Number.parseFloat('3.14')
+Number.isNaN(value)
+```
+
+### Zod v4 — `.issues` not `.errors`
+Zod v4 renamed `ZodError.errors` to `ZodError.issues`.
+
+```ts
+// WRONG — TS2339
+parsed.error.errors[0]?.message
+
+// CORRECT
+parsed.error.issues[0]?.message
+```
+
+### Prisma `_count` — use the relation name, not the model name
+The `_count` key must match the relation field name in the schema, not the related model name.
+
+```ts
+// Schema: Organization { users Profile[] }
+// WRONG
+_count: { select: { profiles: true } }
+
+// CORRECT
+_count: { select: { users: true } }
+```
+
+### Non-existent model fields — derive or remove
+Never access fields that do not exist in the Prisma schema. Compute them from existing fields.
+
+```ts
+// LeaveBalance has: totalDays, usedDays, pendingDays
+// WRONG
+bal.balance    // does not exist
+bal.allocated  // does not exist
+
+// CORRECT
+const balance = bal.totalDays - bal.usedDays - bal.pendingDays
+const allocated = bal.totalDays
+```
+
+### `prefer-immediate-return` — return directly
+Do not assign to a variable only to return it on the next line.
+
+```ts
+// WRONG
+async function getData() {
+  const result = await prisma.employee.findMany(...)
+  return result
+}
+
+// CORRECT
+async function getData() {
+  return prisma.employee.findMany(...)
+}
+```
+
+### `string | null` state setters
+When a value can be `null`, always coerce before passing to a `(v: string) => void` setter.
+
+```ts
+// WRONG — TS2345
+setSearch(value)  // value: string | null
+
+// CORRECT
+setSearch(value ?? '')
+```
+
+---
+
+## Security
+
+### S2068 — No hard-coded passwords or secrets
+Scripts must never contain literal passwords. Read from environment variables and fail fast if absent.
+
+```ts
+// WRONG
+const password = 'Admin@2026!'
+
+// CORRECT
+const password = process.env.ADMIN_PASSWORD
+if (!password) {
+  console.error('Set ADMIN_PASSWORD env var to run this script.')
+  process.exit(1)
+}
+```
+
+### S7637 — Pin GitHub Actions to a full commit SHA
+Never reference an action by branch name (`@master`, `@main`). Always pin to a 40-character SHA and add a version comment.
+
+```yaml
+# WRONG
+uses: SonarSource/sonarcloud-github-action@master
+
+# CORRECT
+uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
+```
+
+---
+
+## Performance / Correctness
+
+### S7776 — Use `Set` for membership checks
+Role/permission arrays used only for `.includes()` checks must be `Set` so lookups are O(1).
+
+```ts
+// WRONG
+const ADMIN_ROLES = ['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN']
+if (!ADMIN_ROLES.includes(profile.role)) { ... }
+
+// CORRECT
+const ADMIN_ROLES = new Set(['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN'])
+if (!ADMIN_ROLES.has(profile.role)) { ... }
+```
+
+### S6582 — Prefer optional chaining
+Replace `x && x.y` with `x?.y`.
+
+```ts
+// WRONG
+const rate = ot && ot.fixedRateAmount > 0 ? ot.fixedRateAmount : null
+
+// CORRECT
+const rate = (ot?.fixedRateAmount && ot.fixedRateAmount > 0) ? ot.fixedRateAmount : null
+```
+
+### S7781 — Prefer `replaceAll` for literal patterns
+When the search pattern is a literal string (not a regex), use `replaceAll` instead of `.replace(/pat/g, ...)`.
+
+```ts
+// WRONG
+text.replace(/_/g, ' ')
+text.replace(/\n/g, '<br />')
+
+// CORRECT
+text.replaceAll('_', ' ')
+text.replaceAll('\n', '<br />')
+```
+
+### S4624 — No nested template literals
+Extract the inner expression to a named variable before using it in the outer template.
+
+```ts
+// WRONG
+`${country}${city ? `, ${city}` : ''}`
+
+// CORRECT
+const citySuffix = city ? `, ${city}` : ''
+`${country}${citySuffix}`
+// or use an if/else block in JSX
+```
+
+### S8786 — Avoid ReDoS-prone regexes
+Never nest a quantified group inside another quantifier: `(?:...)+` where `...` itself contains `+` or `*`.
+
+```ts
+// WRONG — nested quantifier causes backtracking
+/[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+/
+
+// CORRECT — flattened, no nesting
+/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+```
+
+### S7780 — Use `String.raw` for Windows paths in scripts
+Node.js scripts that contain Windows backslash paths should use `String.raw` to avoid double-escaping. (Note: do NOT use `String.raw` in Next.js `config.matcher` — Turbopack cannot statically analyze it.)
+
+```js
+// WRONG (in a plain Node.js script)
+const bin = 'node_modules\\.bin\\next.cmd'
+
+// CORRECT
+const bin = String.raw`node_modules\.bin\next.cmd`
+```
+
+### S7772 — Use the `node:` protocol for built-in modules
+Always import Node.js built-ins with the `node:` prefix.
+
+```js
+// WRONG
+const { spawn } = require('child_process')
+
+// CORRECT
+const { spawn } = require('node:child_process')
+```
+
+### S3863 — Merge duplicate imports
+Never import from the same module twice. Combine into a single import statement.
+
+```ts
+// WRONG
+import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
+
+// CORRECT
+import { notFound, redirect } from 'next/navigation'
+```
+
+### S6551 — Explicit string conversion for template literals
+`Record<string, unknown>` values interpolated into template literals will produce `[object Object]`. Cast with `String()`.
+
+```ts
+// detail is Record<string, unknown>
+// WRONG
+`Entity: ${detail.name}`
+
+// CORRECT
+`Entity: ${String(detail.name)}`
+```
+
+---
+
+## Cognitive Complexity
+
+### sonarjs/cognitive-complexity — Keep functions under 15
+When SonarQube reports cognitive complexity > 15:
+- Extract sections into named helper functions at module scope.
+- Extract React state + effects into a dedicated custom hook (`useXxx`).
+- Replace stacked ternaries with `if/else` blocks.
+- Move sub-components out of the parent render function.
+
+```tsx
+// WRONG — deeply nested logic inside the component
+export function Page() {
+  // 80 lines of interleaved state, effects, and helpers
+}
+
+// CORRECT — extract a custom hook
+function usePage() {
+  const [data, setData] = useState(...)
+  useEffect(() => { ... }, [...])
+  function handleSubmit() { ... }
+  return { data, handleSubmit }
+}
+export function Page() {
+  const { data, handleSubmit } = usePage()
+  return <div>...</div>
+}
+```

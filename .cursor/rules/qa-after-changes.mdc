@@ -1,0 +1,92 @@
+---
+description: QA checklist to run after every code change — linting, type-check, SonarCloud, architecture, performance, security, and documentation standards
+alwaysApply: true
+---
+
+# QA After Every Change
+
+Run these checks after **any** substantive edit before marking a task done.
+
+Refer to `.cursor/rules/development-principles.mdc` for full architectural guidance and `.cursor/rules/coding-standards.mdc` for code-level rules.
+
+## 1. ESLint (includes SonarJS rules)
+```bash
+pnpm lint
+```
+Zero warnings allowed for `sonarjs/*` rules. Fix all reported issues.
+
+## 2. TypeScript
+```bash
+pnpm tsc --noEmit
+```
+Zero type errors allowed.
+
+## 3. SonarCloud Standards Checklist
+
+Refer to `.cursor/rules/coding-standards.mdc` for full guidance. Quick checklist:
+
+- [ ] No function exceeds Cognitive Complexity 15
+- [ ] No `parseInt` / `parseFloat` / `isNaN` / `isFinite` (use `Number.*`)
+- [ ] No double-prefixed `Number.Number.*` after automated find-replace fixes
+- [ ] No `x && x.y` patterns (use `x?.y`)
+- [ ] No array index keys in React lists
+- [ ] All prop interfaces have `readonly` modifiers
+- [ ] No helper functions defined inside React component bodies
+- [ ] Interactive elements use `<button>`, not `<div onClick>`
+- [ ] No nested ternary expressions — use early returns or lookup maps
+- [ ] All `.replace(str)` and `.replace(/regex/g)` calls use `.replaceAll()` instead
+- [ ] `<html>` root elements include `lang` attribute (e.g. `lang="en"`)
+- [ ] `<label>` elements are associated with a control via `htmlFor`, wrapping, or `aria-labelledby`
+
+## 4. Build (for API route changes)
+```bash
+pnpm build
+```
+
+## 5. Database (after schema changes)
+```bash
+pnpm db:push
+```
+
+## 6. Architecture & Code Quality
+
+- [ ] Each file has one clear responsibility — no mixing of HTTP handling, business logic, and DB access
+- [ ] No duplicate logic — shared code lives in `src/lib/`
+- [ ] No hardcoded business values — rates, limits, roles, and messages use config or env vars
+- [ ] No unused imports, commented-out code, or `console.log` left in committed files
+- [ ] Country-specific rules go through `CountryRuleSet` / `ConfigValue` DB tables, not `if (country === 'SA')` in code
+
+## 7. Performance
+
+- [ ] No N+1 queries — related data is fetched with Prisma `include`, not in a loop
+- [ ] List endpoints accept `page` / `limit` params and never return unbounded result sets
+- [ ] New Prisma models include `@@index` on all foreign keys and filtered fields
+- [ ] `Promise.all` used where multiple async operations are independent
+
+## 8. Security Checklist
+
+- [ ] No hardcoded connection strings, passwords, or API keys in any `.ts` / `.tsx` / `.js` file
+- [ ] No `?? 'postgresql://...'` or `?? 'sk-...'` fallbacks — use `throw new Error(...)` if env var is missing
+- [ ] `.env.local` is listed in `.gitignore` and is NOT staged for commit (`git status` must not show it)
+- [ ] New secrets are documented in `.env.example` with placeholder values only (e.g. `YOUR_SECRET_HERE`)
+- [ ] If a secret was accidentally committed: rotate it in the service dashboard before pushing the fix
+- [ ] No overlapping quantifiers in email/domain regex — domain group must use `[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+`, not `[a-zA-Z0-9.-]+\.`
+- [ ] No `[\s\S]*` or `[^]*` inside a pattern applied to external/AI input — use `indexOf`/`lastIndexOf` for JSON extraction
+- [ ] No `^x+|x+$` alternation regex for trimming AI/external output — use a string-walk helper (e.g. `stripBackticks`)
+- [ ] Every API route validates request body with Zod `safeParse` before touching the database
+- [ ] Every API route checks `supabase.auth.getUser()` and `profile.organizationId`
+- [ ] Every Prisma query on multi-tenant models includes `organizationId` in `where`
+- [ ] No `dangerouslySetInnerHTML` with unsanitized user or AI content
+
+## 9. Error Handling & Logging
+
+- [ ] Every API route has a `try/catch` returning via the `error()` helper — no raw stack traces to clients
+- [ ] Server errors use `logger.error` / `logger.warn` from `src/lib/errors/logger.ts`
+- [ ] Business events (create, update, delete) call `logActivity` from `src/lib/system-log.ts`
+
+## 10. Documentation (for new features)
+
+- [ ] New environment variables are documented in `.env.example` with a description comment
+- [ ] New Prisma models have a comment explaining their purpose
+- [ ] New API routes have an inline comment documenting accepted request shape and response shape
+- [ ] `README.md` is updated if install, run, or deploy steps changed

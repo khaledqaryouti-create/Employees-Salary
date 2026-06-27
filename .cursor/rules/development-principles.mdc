@@ -1,0 +1,128 @@
+---
+description: Commercial-grade development principles — architecture, readability, performance, security, error handling, testing, and documentation standards for the payroll system
+alwaysApply: true
+---
+
+# Development Principles
+
+Every code change must meet these standards. The system must be ready for commercial sale and technical due diligence at all times.
+
+---
+
+## Architecture & Code Structure
+
+- **Single responsibility**: each file has one clear purpose — API route, service, component, utility, or type
+- **Separation of concerns**: business logic lives in `src/lib/`, API handlers in `src/app/api/`, UI in `src/app/(dashboard)/`, shared types in `src/types/`
+- **No large files**: split files exceeding ~200 lines if they contain multiple unrelated concerns
+- **No duplicate logic**: extract shared code into `src/lib/` helpers before duplicating
+
+```
+src/
+  app/
+    api/           ← HTTP handlers only — validate, call service, return response
+    (dashboard)/   ← UI pages and components
+  lib/
+    payroll-engine/  ← business logic
+    formula-engine/
+    export/
+    errors/        ← error helpers and logger
+    prisma/        ← DB client singleton
+    supabase/      ← auth client helpers
+  components/
+    ui/            ← shadcn/ui primitives
+    layout/        ← shared layout elements
+```
+
+---
+
+## Readability & Naming
+
+- Variable, function, and file names must describe intent clearly — `calculateGrossSalary`, not `calc` or `fn1`
+- Comments only where logic is non-obvious — no comments that just narrate what the code does
+- No commented-out code, unused imports, or `console.log` statements left in committed files
+- Keep functions short — if a function does not fit on one screen, extract helpers
+
+---
+
+## Dynamic & Configurable Design
+
+- No hardcoded business values: rates, thresholds, limits, role lists, message strings
+- Configuration belongs in environment variables (`.env.local`) or database-driven config tables
+- Feature flags and country-specific rules go through the `CountryRuleSet` / `ConfigValue` tables — not `if (country === 'SA')` in code
+- Reuse existing Zod schemas, Prisma relations, and lib helpers before writing new ones
+
+---
+
+## Performance
+
+- **No N+1 queries**: always `include` related data in a single Prisma query instead of querying inside a loop
+- **Pagination**: every list API endpoint must accept `page` and `limit` params; never return unbounded result sets
+- **Indexing**: new Prisma models must include `@@index` on every foreign key and commonly filtered field
+- **Avoid unnecessary re-renders**: memoize expensive computations; don't pass new object/array literals as props
+- **Async correctly**: `await` inside `for` loops is sequential — use `Promise.all` when operations are independent
+
+```typescript
+// ❌ BAD — sequential N+1
+for (const emp of employees) {
+  const salary = await prisma.salaryStructure.findUnique({ where: { employeeId: emp.id } })
+}
+
+// ✅ GOOD — single query with include
+const employees = await prisma.employee.findMany({
+  include: { salaryStructure: true },
+})
+```
+
+---
+
+## Security
+
+- See `coding-standards.mdc` for full security rules (no hardcoded secrets, ReDoS-safe regex, env var enforcement)
+- **Input validation**: every API route must validate the request body with Zod `safeParse` before touching the database
+- **Authentication**: every API route must verify `supabase.auth.getUser()` and check `profile.organizationId`
+- **Authorization**: check `profile.role` against an allowlist — never trust client-sent role claims
+- **Tenant isolation**: every Prisma query on multi-tenant models must include `organizationId` in the `where` clause
+- **No raw SQL**: use Prisma ORM exclusively — never string-interpolate user input into query strings
+- **XSS**: never set `dangerouslySetInnerHTML` with unsanitized user content; AI responses must be scrubbed via `scrubPII` before rendering
+
+---
+
+## Error Handling & Logging
+
+- Every API route must be wrapped in `try/catch`
+- Return errors via the `error()` helper from `src/lib/errors/api-response.ts` — never expose stack traces to clients
+- Use `logger.warn` / `logger.error` from `src/lib/errors/logger.ts` for structured server-side logging
+- Log all significant business events via `logActivity` from `src/lib/system-log.ts`
+- Error messages shown to users must be human-readable, not technical
+
+```typescript
+// ❌ BAD
+} catch (err) {
+  return NextResponse.json({ error: err.message }, { status: 500 })
+}
+
+// ✅ GOOD
+} catch (err) {
+  logger.error('Failed to process payroll', { error: err, orgId })
+  return error('INTERNAL', 'Payroll processing failed — please try again', 500)
+}
+```
+
+---
+
+## Testing & Quality
+
+- Business logic in `src/lib/` must have unit tests (Vitest) covering happy path and edge cases
+- Key API flows (payroll calculation, employee import, formula evaluation) must have integration tests
+- No unused files, dead exports, or orphaned components
+- `pnpm lint`, `pnpm tsc --noEmit`, and `pnpm build` must all pass before merging
+
+---
+
+## Documentation
+
+- `README.md` must always be accurate: install, configure, run, test, deploy steps
+- `.env.example` must document every required environment variable with a description comment
+- New Prisma models must have a comment explaining their purpose
+- New API routes must document accepted request shape and response shape in a JSDoc block or inline comment
+- Any non-obvious business rule must have a code comment explaining why, not just what

@@ -1,0 +1,219 @@
+---
+description: Payroll system coding standards — enforces SonarCloud-compatible quality rules for all TypeScript/TSX files
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Payroll System Coding Standards
+
+These standards align with the SonarCloud quality gate configured in `sonar-project.properties`.
+
+## Complexity
+
+- Keep function **Cognitive Complexity ≤ 15**. Extract helpers when logic grows.
+- Avoid deeply nested `if/for/while` blocks. Extract sub-functions instead.
+
+```typescript
+// ❌ BAD — one giant function doing everything
+async function processAll() { /* 80 lines of nested logic */ }
+
+// ✅ GOOD — split into focused helpers
+async function validateRow(row) { ... }
+async function upsertRecord(data) { ... }
+async function processAll() {
+  for (const row of rows) {
+    const v = validateRow(row)
+    if (!v.ok) { errors.push(v); continue }
+    await upsertRecord(v.data)
+  }
+}
+```
+
+## Null / Optional Chaining
+
+- Always use `x?.y` instead of `x && x.y`.
+- Use `x ?? fallback` instead of `x || fallback` for default values.
+
+```typescript
+// ❌  if (!profile || !profile.organizationId)
+// ✅  if (!profile?.organizationId)
+```
+
+## Number Methods
+
+Use `Number.*` namespace to avoid implicit global usage:
+
+```typescript
+// ❌  parseInt(x)  parseFloat(x)  isNaN(x)  isFinite(x)
+// ✅  Number.parseInt(x)  Number.parseFloat(x)  Number.isNaN(x)  Number.isFinite(x)
+```
+
+## String Replace
+
+Use `replaceAll` for **both** literal strings and global regex (`/pattern/g`). `replace` only replaces the first match for literals and is flagged by SonarCloud even when using the `g` flag:
+
+```typescript
+// ❌  str.replace('_', ' ')           // only replaces first match
+// ❌  str.replace(/&/g, '&amp;')      // SonarCloud prefers replaceAll
+// ✅  str.replaceAll('_', ' ')        // literal — replaces all
+// ✅  str.replaceAll('&', '&amp;')    // literal — cleaner than regex
+// ✅  str.replaceAll(/pattern/g, x)   // regex — must keep g flag
+```
+
+## React Keys
+
+Never use array index as a React key for lists that can reorder or change:
+
+```tsx
+// ❌  items.map((item, i) => <Row key={i} />)
+// ✅  items.map((item) => <Row key={item.id} />)
+```
+
+## Prop Interfaces
+
+Mark all React component prop interface properties as `readonly`:
+
+```typescript
+// ❌  interface Props { data: Item[] }
+// ✅  interface Props { readonly data: Item[] }
+```
+
+## Functions in Components
+
+Define pure helper functions **outside** the component body to avoid re-creation on every render:
+
+```typescript
+// ❌  export default function Page() { function slugify(s) { ... } ... }
+// ✅  function slugify(s) { ... }
+    export default function Page() { ... }
+```
+
+## Accessibility
+
+Interactive elements must be `<button>` (or a semantic element), never a `<div>` with `onClick`:
+
+```tsx
+// ❌  <div onClick={handleClick} role="button">
+// ✅  <button type="button" onClick={handleClick}>
+```
+
+## Accessibility — HTML Root
+
+Every `<html>` element (e.g. in `error.tsx`, `global-error.tsx`) must have a `lang` attribute:
+
+```tsx
+// ❌  <html>
+// ✅  <html lang="en">
+```
+
+## Accessibility — Label Association
+
+Every `<label>` must be associated with its control via `htmlFor`, by wrapping the input, or via `aria-labelledby`. For passthrough component definitions (shadcn/ui `Label`), suppress the false positive with an eslint comment:
+
+```tsx
+// Usage sites — always pass htmlFor:
+<Label htmlFor="email">Email</Label>
+<Input id="email" ... />
+
+// Component definition (passthrough) — suppress only here:
+// eslint-disable-next-line jsx-a11y/label-has-associated-control
+<label data-slot="label" {...props} />
+```
+
+## Negated Conditions
+
+Prefer the positive path first to improve readability:
+
+```typescript
+// ❌  if (!exists) { skip() } else { process() }
+// ✅  if (exists) { process() } else { skip() }
+```
+
+## Security — ReDoS-Safe String Validation
+
+Never use regex with adjacent quantifiers whose character classes overlap on user-supplied input. The pattern `[^\s@]+@[^\s@]+\.[^\s@]+` is a known ReDoS risk because both domain groups include dots, causing O(n²) backtracking on adversarial input.
+
+For email validation, use string operations instead of regex:
+
+```typescript
+// ❌ BAD — O(n²) backtracking on adversarial input like "a@x.x.x.x.x."
+/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+// ✅ GOOD — O(n), no backtracking, place outside the component
+function isValidEmail(value: string): boolean {
+  const at = value.indexOf('@')
+  if (at <= 0 || at !== value.lastIndexOf('@')) return false
+  const domain = value.slice(at + 1)
+  const dot = domain.lastIndexOf('.')
+  return dot > 0 && dot < domain.length - 1
+}
+```
+
+For extracting JSON from free-text responses (e.g. AI output), use string operations instead of regex:
+
+```typescript
+// ❌ BAD — [\s\S]* backtracks through entire string when closing bracket is missing
+text.match(/\[[\s\S]*\]/)
+
+// ✅ GOOD — O(n), no backtracking
+const start = text.indexOf('[')
+const end   = text.lastIndexOf(']')
+const result = (start !== -1 && end > start) ? JSON.parse(text.slice(start, end + 1)) : []
+```
+
+For regex matching email addresses in scrubbers or filters, never allow dots inside a repeating domain character class:
+
+```typescript
+// ❌ BAD — [a-zA-Z0-9.-]+ includes dots, overlaps with the following \.
+/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+
+// ✅ GOOD — domain labels are dot-free; dots are only explicit separators
+/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+/g
+```
+
+For trimming delimiter characters (backticks, quotes, etc.) from AI or external output, never use `+` in alternation — use a string-walk helper instead:
+
+```typescript
+// ❌ BAD — alternation with + quantifier flagged on AI/external output
+text.replace(/^`+|`+$/g, '')
+
+// ✅ GOOD — O(n) string walk, no regex
+function stripBackticks(s: string): string {
+  let start = 0, end = s.length
+  while (start < end && s[start] === '`') start++
+  while (end > start && s[end - 1] === '`') end--
+  return s.slice(start, end)
+}
+```
+
+Danger patterns to avoid in regex applied to external input:
+- `(a+)+`  `(a|a)*`  `(a*)*` — exponential backtracking
+- `[^\s@]+@[^\s@]+\.` — adjacent quantifiers with overlapping character classes
+- `[a-zA-Z0-9.-]+\.` — dot inside repeating class before a literal dot separator
+- `[\s\S]*` / `[^]*` inside a larger pattern — unbounded greedy match with forced backtracking
+- `^x+|x+$` alternation — `+` quantifier in alternation on external input
+
+## Security — No Hardcoded Credentials
+
+Never hardcode database URLs, API keys, passwords, or any secret as a fallback value in source code. Use environment variables exclusively and fail fast with a clear error if they are missing:
+
+```typescript
+// ❌ BAD — exposes real password in Git history and SonarCloud scans
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL ?? 'postgresql://user:realpassword@host/db',
+})
+
+// ✅ GOOD — fail immediately with a clear, actionable message
+const connectionString = process.env['DATABASE_URL']
+if (!connectionString) {
+  throw new Error('DATABASE_URL is required. Copy .env.example to .env.local and fill in your values.')
+}
+const adapter = new PrismaPg({ connectionString })
+```
+
+Rules:
+- No `?? 'postgresql://...'` fallbacks in any file tracked by Git
+- No API keys, tokens, or passwords assigned directly as string literals
+- `.env.local` is gitignored — never commit it
+- `.env.example` documents required variables with placeholder values only (e.g. `YOUR_SECRET_HERE`)
+- If a secret is accidentally committed: rotate it in the service dashboard immediately, then remove it from code
