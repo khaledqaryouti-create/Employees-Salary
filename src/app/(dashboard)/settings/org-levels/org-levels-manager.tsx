@@ -27,7 +27,7 @@ const PRESET_COLORS = [
   '#ef4444', '#06b6d4', '#ec4899', '#84cc16',
 ]
 
-export default function OrgLevelsManager({ initialLevels }: { initialLevels: Level[] }) {
+export default function OrgLevelsManager({ initialLevels }: Readonly<{ initialLevels: Level[] }>) {
   const [levels, setLevels] = useState<Level[]>(initialLevels)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Level | null>(null)
@@ -95,13 +95,15 @@ export default function OrgLevelsManager({ initialLevels }: { initialLevels: Lev
     }
   }
 
+  const saveLabel = editing ? 'Save Changes' : 'Add Level'
+
   return (
     <>
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <Layers className="h-4 w-4" />
-            <span>{levels.length} level{levels.length !== 1 ? 's' : ''} defined</span>
+            <span>{levels.length} level{levels.length === 1 ? '' : 's'} defined</span>
           </div>
           <Button size="sm" onClick={openAdd}>
             <Plus className="h-4 w-4 mr-1" /> Add Level
@@ -128,7 +130,7 @@ export default function OrgLevelsManager({ initialLevels }: { initialLevels: Lev
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{level.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Depth {level.depth} &bull; {level._count.units} unit{level._count.units !== 1 ? 's' : ''} assigned
+                    Depth {level.depth} &bull; {level._count.units} unit{level._count.units === 1 ? '' : 's'} assigned
                   </p>
                 </div>
                 <Badge variant="outline" className="shrink-0 text-xs">
@@ -161,8 +163,9 @@ export default function OrgLevelsManager({ initialLevels }: { initialLevels: Lev
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1">
-              <label className="text-sm font-medium">Level Name</label>
+              <label htmlFor="level-name-input" className="text-sm font-medium">Level Name</label>
               <Input
+                id="level-name-input"
                 placeholder="e.g. Site, Department, Section, Division"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -170,7 +173,7 @@ export default function OrgLevelsManager({ initialLevels }: { initialLevels: Lev
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Badge Color</label>
+              <label id="badge-color-label" className="text-sm font-medium">Badge Color</label>
               <div className="flex gap-2 flex-wrap">
                 {PRESET_COLORS.map(c => (
                   <button
@@ -190,7 +193,7 @@ export default function OrgLevelsManager({ initialLevels }: { initialLevels: Lev
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleSave} disabled={loading || !form.name.trim()}>
-              {loading ? 'Saving…' : editing ? 'Save Changes' : 'Add Level'}
+              {loading ? 'Saving…' : saveLabel}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -162,7 +162,7 @@ export default function SalaryTransactionsPage() {
             <CardTitle className="text-sm text-gray-600">
               {MONTHS.find((m) => m.value === periodMonth)?.label} {periodYear}
               {' — '}
-              {currentRows.length} record{currentRows.length !== 1 ? 's' : ''}
+              {currentRows.length} record{currentRows.length === 1 ? '' : 's'}
             </CardTitle>
             <Button size="sm" onClick={startNewRow} className="gap-1">
               <Plus className="w-4 h-4" /> New
@@ -307,7 +307,7 @@ export default function SalaryTransactionsPage() {
                         </td>
                         {isOvertime && (
                           <td className="px-4 py-3 text-right text-gray-700">
-                            {row.hours != null ? row.hours.toLocaleString() : '—'}
+                            {row.hours == null ? '—' : row.hours.toLocaleString()}
                           </td>
                         )}
                         <td className="px-4 py-3 text-right text-gray-900 font-medium">

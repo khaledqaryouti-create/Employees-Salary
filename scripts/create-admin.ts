@@ -23,12 +23,17 @@ import { PrismaPg } from '@prisma/adapter-pg'
 const args = process.argv.slice(2)
 function getArg(flag: string): string | undefined {
   const idx = args.indexOf(flag)
-  return idx !== -1 ? args[idx + 1] : undefined
+  return idx === -1 ? undefined : args[idx + 1]
 }
 
 const email    = getArg('--email')    ?? 'admin@payrollpro.demo'
-const password = getArg('--password') ?? 'Admin@PayrollPro2026!'
+const password = getArg('--password') ?? process.env.ADMIN_PASSWORD
 const fullName = getArg('--name')     ?? 'Super Admin'
+
+if (!password) {
+  console.error('Password is required. Pass --password <pwd> or set ADMIN_PASSWORD env var.')
+  process.exit(1)
+}
 
 // ── Validate env ────────────────────────────────────────────────────────────
 const supabaseUrl        = process.env.NEXT_PUBLIC_SUPABASE_URL

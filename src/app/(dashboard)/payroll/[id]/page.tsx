@@ -43,9 +43,9 @@ const MONTHS = [
 
 export default async function PayrollRunDetailPage({
   params,
-}: {
+}: Readonly<{
   params: Promise<{ id: string }>
-}) {
+}>) {
   const { orgId } = await getProfileOrRedirect()
   const { id } = await params
 
@@ -209,12 +209,12 @@ function SummaryCard({
   bg,
   label,
   value,
-}: {
+}: Readonly<{
   icon: React.ReactNode
   bg: string
   label: string
   value: string
-}) {
+}>) {
   return (
     <Card className="border-0 shadow-sm">
       <CardContent className="flex items-center gap-3 p-4">

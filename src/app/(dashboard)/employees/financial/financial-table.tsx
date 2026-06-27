@@ -60,7 +60,7 @@ function deductionsTotal(s: SalaryStructure): number {
     .reduce((sum, c) => sum + resolveAmount(c, s.basicSalary), 0)
 }
 
-export function FinancialTable({ employees }: { employees: Employee[] }) {
+export function FinancialTable({ employees }: Readonly<{ employees: Employee[] }>) {
   const router = useRouter()
   const t = useTranslations('employees')
   const tc = useTranslations('common')
@@ -147,11 +147,10 @@ export function FinancialTable({ employees }: { employees: Employee[] }) {
 
                   {/* Net */}
                   <TableCell className="text-right">
-                    {net !== null ? (
-                      <span className="font-bold font-mono text-sm text-gray-900">
-                        {formatCurrency(net, s!.currency)}
-                      </span>
-                    ) : <span className="text-gray-300 text-sm">—</span>}
+                    {net === null
+                      ? <span className="text-gray-300 text-sm">—</span>
+                      : <span className="font-bold font-mono text-sm text-gray-900">{formatCurrency(net, s!.currency)}</span>
+                    }
                   </TableCell>
 
                   <TableCell className="text-sm text-gray-500">{s?.currency ?? '—'}</TableCell>
@@ -185,7 +184,7 @@ export function FinancialTable({ employees }: { employees: Employee[] }) {
                 <p className="font-medium text-gray-900 truncate">{emp.fullName}</p>
                 <p className="text-xs text-gray-400">#{emp.employeeNumber} · {emp.country}</p>
                 <p className="text-xs text-gray-600 font-mono mt-0.5">
-                  {net !== null ? `${tc('netTotal')}: ${formatCurrency(net, s!.currency)}` : tc('noSalarySet')}
+                  {net === null ? tc('noSalarySet') : `${tc('netTotal')}: ${formatCurrency(net, s!.currency)}`}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">

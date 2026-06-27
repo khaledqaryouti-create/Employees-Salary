@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -51,7 +51,7 @@ export default function OvertimeTypesPage() {
     }
   }, [search])
 
-  useEffect(() => { void loadData() }, [loadData])
+  useEffect(() => { loadData() }, [loadData])
 
   function openCreate() {
     setEditId(null)

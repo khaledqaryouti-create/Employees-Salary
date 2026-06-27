@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { ChevronRight, ChevronDown, Users, Building2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { TreeNode } from './page'
@@ -10,13 +10,22 @@ type Level = { id: string; name: string; depth: number; color: string | null }
 function NodeCard({
   node,
   depth = 0,
-}: {
+}: Readonly<{
   node: TreeNode
   depth?: number
-}) {
+}>) {
   const [expanded, setExpanded] = useState(depth < 2)
   const hasChildren = node.children.length > 0
   const indent = depth * 24
+
+  let expandIcon: React.ReactNode
+  if (!hasChildren) {
+    expandIcon = <span className="inline-block w-4 h-4" />
+  } else if (expanded) {
+    expandIcon = <ChevronDown className="h-4 w-4" />
+  } else {
+    expandIcon = <ChevronRight className="h-4 w-4" />
+  }
 
   return (
     <div>
@@ -29,15 +38,7 @@ function NodeCard({
           onClick={() => setExpanded(e => !e)}
           disabled={!hasChildren}
         >
-          {hasChildren ? (
-            expanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )
-          ) : (
-            <span className="inline-block w-4 h-4" />
-          )}
+          {expandIcon}
         </button>
 
         <span
@@ -93,7 +94,7 @@ function NodeCard({
   )
 }
 
-function LevelLegend({ levels }: { levels: Level[] }) {
+function LevelLegend({ levels }: Readonly<{ levels: Level[] }>) {
   return (
     <div className="flex flex-wrap gap-3">
       {levels.map(l => (
@@ -114,10 +115,10 @@ function LevelLegend({ levels }: { levels: Level[] }) {
 export default function StructureTree({
   tree,
   levels,
-}: {
+}: Readonly<{
   tree: TreeNode[]
   levels: Level[]
-}) {
+}>) {
   return (
     <div className="space-y-4">
       <LevelLegend levels={levels} />

@@ -26,7 +26,7 @@ interface Employee {
   orgUnit?: { name: string; level: { name: string; color: string | null } } | null
 }
 
-export function PersonalTable({ employees }: { employees: Employee[] }) {
+export function PersonalTable({ employees }: Readonly<{ employees: Employee[] }>) {
   const router = useRouter()
   const t = useTranslations('employees')
   const tc = useTranslations('common')

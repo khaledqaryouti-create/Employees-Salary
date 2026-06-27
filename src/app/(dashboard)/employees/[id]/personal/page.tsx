@@ -13,9 +13,9 @@ import { formatDate } from '@/lib/utils/format'
 
 export default async function EmployeePersonalPage({
   params,
-}: {
+}: Readonly<{
   params: Promise<{ id: string }>
-}) {
+}>) {
   const { id } = await params
   const { orgId } = await getProfileOrRedirect()
   const t = await getTranslations('employees')

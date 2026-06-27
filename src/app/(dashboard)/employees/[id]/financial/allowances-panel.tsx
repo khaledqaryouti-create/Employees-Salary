@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -50,7 +50,7 @@ export function AllowancesPanel({
   currency,
   basicSalary,
   existingAllowances,
-}: Props) {
+}: Readonly<Props>) {
   const router = useRouter()
   const [open, setOpen]               = useState(false)
   const [saving, setSaving]           = useState(false)

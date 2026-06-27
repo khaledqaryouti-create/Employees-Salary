@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const email    = process.argv[3] ?? 'khaledqaryouti@gmail.com'
-const password = process.argv[5] ?? 'Admin@2026!'
+const password = process.argv[5] ?? process.env.ADMIN_PASSWORD
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -239,11 +239,11 @@ function ExpandableNavItem({
   item,
   pathname: _pathname,
   isActive,
-}: {
+}: Readonly<{
   item: NavItem
   pathname: string
   isActive: (href: string) => boolean
-}) {
+}>) {
   const anyChildActive = item.children?.some((c) => isActive(c.href))
   const parentActive = isActive(item.href)
   const defaultOpen = anyChildActive || parentActive
@@ -299,12 +299,12 @@ function NavLink({
   label,
   icon: Icon,
   active,
-}: {
+}: Readonly<{
   href: string
   label: string
   icon: React.ComponentType<{ className?: string }>
   active: boolean
-}) {
+}>) {
   return (
     <Link
       href={href}

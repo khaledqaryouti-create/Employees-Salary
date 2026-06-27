@@ -82,8 +82,7 @@ export default async function StructurePage() {
             , then add units in{' '}
             <a href="/settings/org-units" className="underline text-primary">
               Settings &rsaquo; Org Units
-            </a>
-            .
+            </a>.
           </p>
         </div>
       ) : (

@@ -30,7 +30,7 @@ const ACTION_COLORS: Record<string, string> = {
 
 function actionLabel(action: string): string {
   return action
-    .replace(/_/g, ' ')
+    .replaceAll('_', ' ')
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
@@ -103,7 +103,7 @@ export default async function SystemLogsPage() {
                         {log.entityType && (
                           <span className="text-xs text-gray-500">
                             {log.entityType}
-                            {detail?.name ? `: ${detail.name}` : ''}
+                            {detail?.name ? `: ${String(detail.name)}` : ''}
                           </span>
                         )}
                       </div>

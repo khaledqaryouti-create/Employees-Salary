@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma/client'
 import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { logActivity } from '@/lib/system-log'
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN']
+const ADMIN_ROLES = new Set(['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN'])
 
 const createSchema = z.object({
   name:        z.string().min(1, 'Name is required').max(100),
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   try {
     const { profile, orgId } = await getProfileOrRedirect()
 
-    if (!ADMIN_ROLES.includes(profile.role)) {
+    if (!ADMIN_ROLES.has(profile.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

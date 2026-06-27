@@ -55,12 +55,19 @@ export default async function SalaryComponentsPage() {
         </LinkButton>
       </div>
 
-      {(['EARNING', 'DEDUCTION', 'EMPLOYER_COST'] as const).map((type) => (
+      {(['EARNING', 'DEDUCTION', 'EMPLOYER_COST'] as const).map((type) => {
+        const typeLabels: Record<string, string> = {
+          EARNING: t('earnings'),
+          DEDUCTION: t('deductions'),
+          EMPLOYER_COST: t('employerCosts'),
+        }
+        const typeLabel = typeLabels[type] ?? type
+        return (
         <Card key={type}>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Calculator className="w-4 h-4" />
-              {type === 'EARNING' ? t('earnings') : type === 'DEDUCTION' ? t('deductions') : t('employerCosts')}
+              {typeLabel}
             </CardTitle>
             <CardDescription>{t('activeComponents', { count: grouped[type]?.length ?? 0 })}</CardDescription>
           </CardHeader>
@@ -99,7 +106,8 @@ export default async function SalaryComponentsPage() {
             )}
           </CardContent>
         </Card>
-      ))}
+        )
+      })}
     </div>
   )
 }

@@ -48,9 +48,9 @@ export async function PATCH(
       where: { id },
       data: {
         ...rest,
-        ...(transactionDate !== undefined
-          ? { transactionDate: transactionDate ? new Date(transactionDate) : null }
-          : {}),
+        ...(transactionDate === undefined
+          ? {}
+          : { transactionDate: transactionDate ? new Date(transactionDate) : null }),
       },
     })
 

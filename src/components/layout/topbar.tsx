@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import React, { useState, useTransition } from 'react'
 import { Menu, Bell, LogOut, User, Sparkles, Languages, Check, Building2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -205,6 +205,19 @@ export function Topbar({
     ? userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : userEmail?.[0]?.toUpperCase() ?? 'U'
 
+  const showBranchSwitcher = branchName && activeBranchId && canSwitchBranch && availableBranches.length > 1
+  let branchElement: React.ReactNode = null
+  if (showBranchSwitcher) {
+    branchElement = <BranchSwitcher branchName={branchName!} activeBranchId={activeBranchId!} availableBranches={availableBranches} />
+  } else if (branchName) {
+    branchElement = (
+      <div className="hidden sm:inline-flex items-center gap-1.5 h-9 px-2.5 rounded-md text-xs text-blue-700 bg-blue-50 border border-blue-200 max-w-[180px]">
+        <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
+        <span className="truncate font-medium">{branchName}</span>
+      </div>
+    )
+  }
+
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-6 shrink-0">
       {/* Mobile menu */}
@@ -234,18 +247,7 @@ export function Topbar({
         </Link>
 
         {/* Branch switcher — shown when branch is assigned */}
-        {branchName && activeBranchId && canSwitchBranch && availableBranches.length > 1 ? (
-          <BranchSwitcher
-            branchName={branchName}
-            activeBranchId={activeBranchId}
-            availableBranches={availableBranches}
-          />
-        ) : branchName ? (
-          <div className="hidden sm:inline-flex items-center gap-1.5 h-9 px-2.5 rounded-md text-xs text-blue-700 bg-blue-50 border border-blue-200 max-w-[180px]">
-            <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="truncate font-medium">{branchName}</span>
-          </div>
-        ) : null}
+        {branchElement}
 
         {/* Language toggle */}
         <LanguageToggle orgLocale={orgLocale} />

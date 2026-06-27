@@ -46,8 +46,10 @@ export default async function WorkspacePage() {
   const currentMonthName = now.toLocaleString('default', { month: 'long' })
 
   const hour = now.getHours()
-  const greeting =
-    hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+  let greeting: string
+  if (hour < 12) greeting = 'Good morning'
+  else if (hour < 18) greeting = 'Good afternoon'
+  else greeting = 'Good evening'
 
   const dateLabel = now.toLocaleDateString('en-US', {
     weekday: 'long',

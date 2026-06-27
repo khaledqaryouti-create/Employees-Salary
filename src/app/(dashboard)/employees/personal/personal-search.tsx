@@ -303,7 +303,7 @@ export function PersonalSearch() {
               </div>
               {hasSearched && (
                 <p className="text-xs text-gray-400 mt-2">
-                  {results.length} result{results.length !== 1 ? 's' : ''}
+                  {results.length} result{results.length === 1 ? '' : 's'}
                 </p>
               )}
             </div>
@@ -616,7 +616,7 @@ export function PersonalSearch() {
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
-function SectionHeading({ color, label }: { color: string; label: string }) {
+function SectionHeading({ color, label }: Readonly<{ color: string; label: string }>) {
   return (
     <div className="flex items-center gap-2">
       <div className={`w-1 h-5 rounded-full ${color}`} />
@@ -629,11 +629,11 @@ function FormField({
   label,
   required,
   children,
-}: {
+}: Readonly<{
   label: string
   required?: boolean
   children: React.ReactNode
-}) {
+}>) {
   return (
     <div className="space-y-1.5">
       <Label className="text-sm font-medium text-gray-700">

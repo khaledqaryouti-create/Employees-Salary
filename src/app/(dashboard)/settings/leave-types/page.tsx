@@ -90,7 +90,7 @@ export default function LeaveTypesPage() {
       color: lt.color ?? '#3b82f6',
       isPaid: lt.isPaid,
       defaultDays: String(lt.defaultDays),
-      maxDaysPerYear: lt.maxDaysPerYear != null ? String(lt.maxDaysPerYear) : '',
+      maxDaysPerYear: lt.maxDaysPerYear == null ? '' : String(lt.maxDaysPerYear),
       carryOverDays: String(lt.carryOverDays),
     })
     setDialogOpen(true)

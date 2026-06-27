@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
@@ -128,7 +128,7 @@ export default function UserGroupsPage() {
     }
   }, [])
 
-  useEffect(() => { void loadGroups() }, [loadGroups])
+  useEffect(() => { loadGroups() }, [loadGroups])
 
   async function loadPermissions(groupId: string) {
     const res = await fetch(`/api/user-groups/${groupId}/permissions`)
@@ -142,7 +142,7 @@ export default function UserGroupsPage() {
 
   function selectGroup(g: UserGroup) {
     setSelectedGroup(g)
-    void loadPermissions(g.id)
+    loadPermissions(g.id)
   }
 
   function togglePerm(pageKey: string, col: keyof Omit<Permission, 'pageKey'>) {
@@ -242,6 +242,7 @@ export default function UserGroupsPage() {
   }
 
   const categories = [...new Set(PAGE_KEYS.map((p) => p.category))]
+  const groupSaveLabel = editingId ? 'Save Changes' : 'Create Group'
 
   return (
     <div className="space-y-6">
@@ -274,7 +275,10 @@ export default function UserGroupsPage() {
           {groups.map((g) => (
             <div
               key={g.id}
+              role="button"
+              tabIndex={0}
               onClick={() => selectGroup(g)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') selectGroup(g) }}
               className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
                 selectedGroup?.id === g.id
                   ? 'border-blue-500 bg-blue-50'
@@ -284,7 +288,7 @@ export default function UserGroupsPage() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm text-gray-900 truncate">{g.name}</span>
-                  {!g.isActive && <Badge variant="secondary" className="text-xs">Inactive</Badge>}
+                  {g.isActive ? null : <Badge variant="secondary" className="text-xs">Inactive</Badge>}
                 </div>
                 <div className="flex items-center gap-1 mt-0.5 text-xs text-gray-500">
                   <Users className="w-3 h-3" />
@@ -316,12 +320,7 @@ export default function UserGroupsPage() {
 
         {/* Right — permission matrix */}
         <div className="lg:col-span-2">
-          {!selectedGroup ? (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-400 border-2 border-dashed rounded-xl">
-              <Shield className="w-10 h-10 mb-3 opacity-30" />
-              <p className="text-sm">Select a role group to configure its permissions</p>
-            </div>
-          ) : (
+          {selectedGroup ? (
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border-b border-blue-100">
                 <div>
@@ -365,6 +364,11 @@ export default function UserGroupsPage() {
                 </table>
               </div>
             </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-400 border-2 border-dashed rounded-xl">
+              <Shield className="w-10 h-10 mb-3 opacity-30" />
+              <p className="text-sm">Select a role group to configure its permissions</p>
+            </div>
           )}
         </div>
       </div>
@@ -406,7 +410,7 @@ export default function UserGroupsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={saveGroup} disabled={saving}>
-              {saving ? 'Saving…' : (editingId ? 'Save Changes' : 'Create Group')}
+              {saving ? 'Saving…' : groupSaveLabel}
             </Button>
           </DialogFooter>
         </DialogContent>

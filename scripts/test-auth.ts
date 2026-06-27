@@ -14,9 +14,15 @@ console.log('Key (first 20):', key?.slice(0, 20))
 const sb = createClient(url, key)
 
 async function run() {
+  const testEmail    = process.env.TEST_EMAIL ?? 'khaledqaryouti@gmail.com'
+  const testPassword = process.env.TEST_PASSWORD
+  if (!testPassword) {
+    console.error('Set TEST_PASSWORD env var to run this script.')
+    process.exit(1)
+  }
   const { data, error } = await sb.auth.signInWithPassword({
-    email: 'khaledqaryouti@gmail.com',
-    password: 'Admin@2026!',
+    email: testEmail,
+    password: testPassword,
   })
 
   if (error) {

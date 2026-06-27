@@ -14,9 +14,9 @@ import { AllowancesPanel } from './allowances-panel'
 
 export default async function EmployeeFinancialPage({
   params,
-}: {
+}: Readonly<{
   params: Promise<{ id: string }>
-}) {
+}>) {
   const { id } = await params
   const { orgId } = await getProfileOrRedirect()
   const t = await getTranslations('employees')
@@ -124,15 +124,7 @@ export default async function EmployeeFinancialPage({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {!s ? (
-            <div className="py-8 text-center">
-              <DollarSign className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-              <p className="text-sm text-gray-400">{t('noSalaryStructure')}</p>
-              <div className="mt-4">
-                <EditSalaryButton employeeId={id} currentSalary={0} currentCurrency="USD" />
-              </div>
-            </div>
-          ) : (
+          {s ? (
             <div className="space-y-1 text-sm">
               {/* Basic */}
               <div className="flex justify-between py-2 border-b border-gray-50">
@@ -194,6 +186,14 @@ export default async function EmployeeFinancialPage({
                 <span className="font-mono text-blue-700 text-base">{formatCurrency(netTotal, s.currency)}</span>
               </div>
               <p className="text-xs text-gray-400">{t('effectiveFrom', { date: formatDate(s.effectiveFrom) })}</p>
+            </div>
+          ) : (
+            <div className="py-8 text-center">
+              <DollarSign className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+              <p className="text-sm text-gray-400">{t('noSalaryStructure')}</p>
+              <div className="mt-4">
+                <EditSalaryButton employeeId={id} currentSalary={0} currentCurrency="USD" />
+              </div>
             </div>
           )}
         </CardContent>

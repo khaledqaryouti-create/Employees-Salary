@@ -177,7 +177,7 @@ export default function JobTitlesPage() {
     setEditingTitle(null)
     setTitleForm({
       ...DEFAULT_TITLE,
-      jobFamilyId: filterFamily !== 'all' ? filterFamily : '',
+      jobFamilyId: filterFamily === 'all' ? '' : filterFamily,
     })
     setTitleDialog(true)
   }

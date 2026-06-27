@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
@@ -73,7 +73,7 @@ export default function CompetenciesPage() {
     }
   }, [search, filterClassification])
 
-  useEffect(() => { void loadData() }, [loadData])
+  useEffect(() => { loadData() }, [loadData])
 
   function openCreate() {
     setEditId(null)

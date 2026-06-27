@@ -113,7 +113,7 @@ export default async function EmployeesFinancialPage() {
 
 function SummaryCard({
   label, value, sub, color,
-}: { label: string; value: string; sub: string; color: string }) {
+}: Readonly<{ label: string; value: string; sub: string; color: string }>) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
       <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{label}</p>

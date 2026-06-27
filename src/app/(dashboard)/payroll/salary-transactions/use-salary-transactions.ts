@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
@@ -122,7 +122,7 @@ export function useSalaryTransactions() {
   }, [periodYear, periodMonth])
 
   useEffect(() => {
-    if (empInfo) { void loadTransactions(empInfo.id) }
+    if (empInfo) { loadTransactions(empInfo.id) }
   }, [empInfo, loadTransactions])
 
   async function findEmployee() {
@@ -148,13 +148,15 @@ export function useSalaryTransactions() {
 
   const isOvertime = activeTab === 'OVERTIME'
 
-  const currentRows = activeTab === 'DEDUCTION' ? deductions
-    : activeTab === 'OTHER_INCOME'              ? otherIncomes
-    :                                             overtimes
+  let currentRows: typeof deductions
+  if (activeTab === 'DEDUCTION') currentRows = deductions
+  else if (activeTab === 'OTHER_INCOME') currentRows = otherIncomes
+  else currentRows = overtimes
 
-  const currentTypes = activeTab === 'DEDUCTION' ? deductionTypes
-    : activeTab === 'OTHER_INCOME'               ? otherIncomeTypes
-    :                                              overtimeTypes
+  let currentTypes: typeof deductionTypes
+  if (activeTab === 'DEDUCTION') currentTypes = deductionTypes
+  else if (activeTab === 'OTHER_INCOME') currentTypes = otherIncomeTypes
+  else currentTypes = overtimeTypes
 
   function startNewRow() {
     setEditId(null)
@@ -208,7 +210,7 @@ export function useSalaryTransactions() {
       typeId:          row.typeId,
       typeName:        row.typeName,
       amount:          String(row.amount),
-      hours:           row.hours != null ? String(row.hours) : '',
+      hours:           row.hours == null ? '' : String(row.hours),
       transactionDate: row.transactionDate
         ? (new Date(row.transactionDate).toISOString().split('T')[0] ?? '')
         : '',
@@ -231,7 +233,7 @@ export function useSalaryTransactions() {
         description:     editRow.description.trim() || null,
       }
       if (isOvertime) {
-        body.hours = editRow.hours !== '' ? Number.parseFloat(editRow.hours) : null
+        body.hours = editRow.hours === '' ? null : Number.parseFloat(editRow.hours)
       }
       const res = await fetch(`/api/salary-transactions/${editId}`, {
         method: 'PATCH',
@@ -280,7 +282,7 @@ export function useSalaryTransactions() {
     }
 
     const ot   = overtimeTypes.find((t) => t.id === typeId)
-    const rate = ot && ot.fixedRateAmount && ot.fixedRateAmount > 0 ? ot.fixedRateAmount : null
+    const rate = (ot?.fixedRateAmount && ot.fixedRateAmount > 0) ? ot.fixedRateAmount : null
     setSelectedOtRate(rate)
 
     const currentHours = forNew ? newRow.hours : editRow.hours

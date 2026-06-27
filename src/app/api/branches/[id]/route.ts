@@ -52,10 +52,10 @@ function buildBranchUpdateData(
 ) {
   return {
     ...rest,
-    ...(isHeadQuarter !== undefined ? { isHeadQuarter } : {}),
-    ...(establishedDate !== undefined
-      ? { establishedDate: establishedDate ? new Date(establishedDate) : null }
-      : {}),
+    ...(isHeadQuarter === undefined ? {} : { isHeadQuarter }),
+    ...(establishedDate === undefined
+      ? {}
+      : { establishedDate: establishedDate ? new Date(establishedDate) : null }),
   }
 }
 

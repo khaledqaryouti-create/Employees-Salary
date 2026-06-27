@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
@@ -83,7 +83,7 @@ export default function UsersSetupPage() {
     }
   }, [search])
 
-  useEffect(() => { void loadData() }, [loadData])
+  useEffect(() => { loadData() }, [loadData])
 
   function openCreate() {
     setEditId(null)

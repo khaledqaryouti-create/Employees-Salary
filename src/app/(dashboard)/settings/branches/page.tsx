@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
@@ -91,7 +91,7 @@ export default function BranchesPage() {
     }
   }, [tc])
 
-  useEffect(() => { void loadBranches() }, [loadBranches])
+  useEffect(() => { loadBranches() }, [loadBranches])
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -317,7 +317,10 @@ export default function BranchesPage() {
                         }
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {b.country ? `${b.country}${b.city ? `, ${b.city}` : ''}` : '—'}
+                        {(() => {
+                          if (!b.country) return '—'
+                          return b.city ? `${b.country}, ${b.city}` : b.country
+                        })()}
                       </td>
                       <td className="px-4 py-3">
                         {b.baseCurrency

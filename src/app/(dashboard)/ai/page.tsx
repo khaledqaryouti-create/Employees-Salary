@@ -159,8 +159,8 @@ How can I help you today?`,
                   dangerouslySetInnerHTML={{
                     __html: msg.content
                       .replaceAll(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                      .replaceAll(/\n/g, '<br />')
-                      .replaceAll(/•/g, '•'),
+                      .replaceAll('\n', '<br />')
+                      .replaceAll('•', '•'),
                   }}
                 />
                 {msg.content === '' && loading && (

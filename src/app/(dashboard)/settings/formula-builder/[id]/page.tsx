@@ -1,7 +1,6 @@
 import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { prisma } from '@/lib/prisma/client'
-import { notFound } from 'next/navigation'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { LinkButton } from '@/components/ui/link-button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft } from 'lucide-react'

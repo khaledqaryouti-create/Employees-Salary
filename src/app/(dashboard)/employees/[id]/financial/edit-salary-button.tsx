@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -34,7 +34,7 @@ interface Props {
   currentCurrency: string
 }
 
-export function EditSalaryButton({ employeeId, currentSalary, currentCurrency }: Props) {
+export function EditSalaryButton({ employeeId, currentSalary, currentCurrency }: Readonly<Props>) {
   const router = useRouter()
   const [open, setOpen]         = useState(false)
   const [loading, setLoading]   = useState(false)

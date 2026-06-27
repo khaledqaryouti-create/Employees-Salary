@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
@@ -71,7 +71,7 @@ export default function FacultiesPage() {
     }
   }, [search, filterUni])
 
-  useEffect(() => { void loadData() }, [loadData])
+  useEffect(() => { loadData() }, [loadData])
 
   function openCreate() {
     setEditId(null)

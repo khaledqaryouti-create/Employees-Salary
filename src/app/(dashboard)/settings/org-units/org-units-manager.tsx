@@ -41,10 +41,10 @@ const EMPTY_FORM = { name: '', code: '', levelId: '', parentId: '' }
 export default function OrgUnitsManager({
   initialUnits,
   levels,
-}: {
+}: Readonly<{
   initialUnits: Unit[]
   levels: Level[]
-}) {
+}>) {
   const [units, setUnits] = useState<Unit[]>(initialUnits)
   const [search, setSearch] = useState('')
   const [filterLevel, setFilterLevel] = useState('all')
@@ -168,6 +168,8 @@ export default function OrgUnitsManager({
     }
   }
 
+  const unitSaveLabel = editing ? 'Save Changes' : 'Add Unit'
+
   return (
     <>
       <div className="rounded-lg border bg-card">
@@ -227,7 +229,12 @@ export default function OrgUnitsManager({
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filtered.map(unit => (
+                {filtered.map(unit => {
+                  let deleteTitle: string
+                  if (unit._count.children > 0) deleteTitle = 'Has child units'
+                  else if (unit._count.employees > 0) deleteTitle = 'Has employees assigned'
+                  else deleteTitle = 'Delete unit'
+                  return (
                   <tr key={unit.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3 font-medium">{unit.name}</td>
                     <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
@@ -271,19 +278,14 @@ export default function OrgUnitsManager({
                         className="text-destructive hover:text-destructive"
                         onClick={() => setDeleteTarget(unit)}
                         disabled={unit._count.children > 0 || unit._count.employees > 0}
-                        title={
-                          unit._count.children > 0
-                            ? 'Has child units'
-                            : unit._count.employees > 0
-                            ? 'Has employees assigned'
-                            : 'Delete unit'
-                        }
+                        title={deleteTitle}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -298,8 +300,9 @@ export default function OrgUnitsManager({
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1">
-              <label className="text-sm font-medium">Level <span className="text-destructive">*</span></label>
+              <label id="unit-level-label" className="text-sm font-medium">Level <span className="text-destructive">*</span></label>
               <Select
+                aria-labelledby="unit-level-label"
                 value={form.levelId}
                 onValueChange={v => setForm(f => ({ ...f, levelId: v ?? '', parentId: '' }))}
               >
@@ -341,8 +344,9 @@ export default function OrgUnitsManager({
             )}
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">Name <span className="text-destructive">*</span></label>
+              <label htmlFor="unit-name-input" className="text-sm font-medium">Name <span className="text-destructive">*</span></label>
               <Input
+                id="unit-name-input"
                 placeholder="e.g. Dubai Site, Finance Department"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -350,8 +354,9 @@ export default function OrgUnitsManager({
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">Code <span className="text-muted-foreground">(optional)</span></label>
+              <label htmlFor="unit-code-input" className="text-sm font-medium">Code <span className="text-muted-foreground">(optional)</span></label>
               <Input
+                id="unit-code-input"
                 placeholder="e.g. DXB-001, FIN"
                 value={form.code}
                 onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
@@ -369,7 +374,7 @@ export default function OrgUnitsManager({
                 (!!selectedLevel && selectedLevel.depth > 0 && !form.parentId)
               }
             >
-              {loading ? 'Saving…' : editing ? 'Save Changes' : 'Add Unit'}
+              {loading ? 'Saving…' : unitSaveLabel}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -12,9 +12,9 @@ import { formatDate, formatCurrency } from '@/lib/utils/format'
 
 export default async function TenantDetailPage({
   params,
-}: {
+}: Readonly<{
   params: Promise<{ id: string }>
-}) {
+}>) {
   const { id } = await params
   const { profile } = await getProfileOrRedirect()
   if (profile.role !== 'SUPER_ADMIN') redirect('/dashboard')

@@ -18,8 +18,8 @@ const requestSchema = z.object({
 // PII scrubber — removes names, emails, phone numbers, IBANs
 function scrubPII(text: string): string {
   return text
-    // Email — domain uses non-dot groups separated by explicit dots to prevent ReDoS backtracking
-    .replaceAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+/g, '[EMAIL]')
+    // Email — simple pattern without nested quantifiers to prevent ReDoS backtracking
+    .replaceAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL]')
     // Phone numbers (various formats)
     .replaceAll(/\+?[\d\s\-.()]{10,}/g, '[PHONE]')
     // IBANs

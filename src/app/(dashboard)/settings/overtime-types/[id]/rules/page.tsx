@@ -80,7 +80,7 @@ type FormState = Omit<OvertimeTypeRules, 'id' | 'name' | 'nameAr' | 'description
 
 const DAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY']
 
-function SectionCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function SectionCard({ title, icon, children }: Readonly<{ title: string; icon: React.ReactNode; children: React.ReactNode }>) {
   return (
     <Card className="border border-gray-200 shadow-sm">
       <CardHeader className="pb-3 border-b border-gray-100">
@@ -96,7 +96,7 @@ function SectionCard({ title, icon, children }: { title: string; icon: React.Rea
   )
 }
 
-function FieldRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function FieldRow({ label, hint, children }: Readonly<{ label: string; hint?: string; children: React.ReactNode }>) {
   return (
     <div className="flex items-start justify-between gap-4 py-2.5 border-b border-gray-50 last:border-0">
       <div className="flex-1 min-w-0">
@@ -110,7 +110,7 @@ function FieldRow({ label, hint, children }: { label: string; hint?: string; chi
   )
 }
 
-function NumInput({ value, onChange, placeholder }: { value: number | null; onChange: (v: number | null) => void; placeholder?: string }) {
+function NumInput({ value, onChange, placeholder }: Readonly<{ value: number | null; onChange: (v: number | null) => void; placeholder?: string }>) {
   return (
     <Input
       type="number"
@@ -124,7 +124,7 @@ function NumInput({ value, onChange, placeholder }: { value: number | null; onCh
   )
 }
 
-function ToggleRow({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
+function ToggleRow({ label, hint, checked, onChange }: Readonly<{ label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }>) {
   return (
     <FieldRow label={label} hint={hint}>
       <div className="flex justify-end">
@@ -134,7 +134,7 @@ function ToggleRow({ label, hint, checked, onChange }: { label: string; hint?: s
   )
 }
 
-export default function OvertimeRulesPage({ params }: { params: Promise<{ id: string }> }) {
+export default function OvertimeRulesPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
   const { id } = use(params)
   const router = useRouter()
   const [typeName, setTypeName] = useState('')

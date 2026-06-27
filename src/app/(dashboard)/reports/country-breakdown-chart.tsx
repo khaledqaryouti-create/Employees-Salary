@@ -25,6 +25,10 @@ function LegendLabel({ value }: { readonly value: string }) {
   return <span style={{ fontSize: 11, color: '#6b7280' }}>{value}</span>
 }
 
+function renderLegendLabel(value: string) {
+  return <LegendLabel value={value} />
+}
+
 export function CountryBreakdownChart({ data }: Props) {
   const chartData = data.slice(0, 8).map((d) => ({
     name: d.country,
@@ -62,7 +66,7 @@ export function CountryBreakdownChart({ data }: Props) {
           <Legend
             iconSize={8}
             iconType="circle"
-            formatter={(value: string) => <LegendLabel value={value} />}
+            formatter={renderLegendLabel}
           />
         </PieChart>
       </ResponsiveContainer>
