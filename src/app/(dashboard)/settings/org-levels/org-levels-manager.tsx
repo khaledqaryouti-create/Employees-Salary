@@ -172,9 +172,9 @@ export default function OrgLevelsManager({ initialLevels }: Readonly<{ initialLe
                 onKeyDown={e => e.key === 'Enter' && handleSave()}
               />
             </div>
-            <div className="space-y-2">
-              <label id="badge-color-label" className="text-sm font-medium">Badge Color</label>
-              <div role="group" aria-labelledby="badge-color-label" className="flex gap-2 flex-wrap">
+            <fieldset className="border-0 p-0 m-0 space-y-2">
+              <legend className="text-sm font-medium">Badge Color</legend>
+              <div className="flex gap-2 flex-wrap">
                 {PRESET_COLORS.map(c => (
                   <button
                     key={c}
@@ -188,7 +188,7 @@ export default function OrgLevelsManager({ initialLevels }: Readonly<{ initialLe
                   />
                 ))}
               </div>
-            </div>
+            </fieldset>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

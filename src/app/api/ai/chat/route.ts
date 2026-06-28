@@ -26,8 +26,8 @@ function scrubPII(text: string): string {
     .replaceAll(/[A-Z]{2}\d{2}[A-Z0-9]{4,}/g, '[IBAN]')
     // Saudi National ID / Iqama
     .replaceAll(/\b[12]\d{9}\b/g, '[ID_NUMBER]')
-    // Common PII patterns in Arabic names (approximation)
-    .replaceAll(/\b(Mr|Mrs|Ms|Dr)\.\s+[A-Z][a-z]+(\s+[A-Z][a-z]+)?\b/g, '[NAME]')
+    // Common PII patterns in Arabic names (approximation) — no nested quantifiers
+    .replaceAll(/\b(?:Mr|Mrs|Ms|Dr)\.\s[A-Z][a-z]{1,30}(?:\s[A-Z][a-z]{1,30})?\b/g, '[NAME]')
 }
 
 const SYSTEM_PROMPT = `You are PayrollPro AI, an expert payroll assistant for HR and finance teams.

@@ -198,9 +198,9 @@ Danger patterns to avoid in regex applied to external input:
 Never hardcode database URLs, API keys, passwords, or any secret as a fallback value in source code. Use environment variables exclusively and fail fast with a clear error if they are missing:
 
 ```typescript
-// ❌ BAD — exposes real password in Git history and SonarCloud scans
+// ❌ BAD — exposes secrets in Git history and SonarCloud scans
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL ?? 'postgresql://user:realpassword@host/db',
+  connectionString: process.env.DATABASE_URL ?? 'postgresql://user:CHANGE_ME@host/db',
 })
 
 // ✅ GOOD — fail immediately with a clear, actionable message
