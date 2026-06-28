@@ -275,29 +275,29 @@ export default function UserGroupsPage() {
           {groups.map((g) => (
             <div
               key={g.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => selectGroup(g)}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') selectGroup(g) }}
-              className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+              className={`flex items-center justify-between rounded-xl border transition-all ${
                 selectedGroup?.id === g.id
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-gray-50'
               }`}
             >
-              <div className="min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={() => selectGroup(g)}
+                className="min-w-0 flex-1 text-left p-3"
+              >
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm text-gray-900 truncate">{g.name}</span>
                   {g.isActive ? null : <Badge variant="secondary" className="text-xs">Inactive</Badge>}
                 </div>
                 <div className="flex items-center gap-1 mt-0.5 text-xs text-gray-500">
                   <Users className="w-3 h-3" />
-                  <span>{g._count.members} user{g._count.members !== 1 ? 's' : ''}</span>
+                  <span>{g._count.members} user{g._count.members === 1 ? '' : 's'}</span>
                 </div>
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              </button>
+              <div className="flex items-center gap-1 flex-shrink-0 pr-3">
                 <button
-                  onClick={(e) => { e.stopPropagation(); openEdit(g) }}
+                  onClick={() => openEdit(g)}
                   className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700"
                   aria-label="Edit group"
                   type="button"
@@ -305,7 +305,7 @@ export default function UserGroupsPage() {
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setDeleteId(g.id) }}
+                  onClick={() => setDeleteId(g.id)}
                   className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"
                   aria-label="Delete group"
                   type="button"

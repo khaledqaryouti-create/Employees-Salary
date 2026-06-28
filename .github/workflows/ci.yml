@@ -42,7 +42,8 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm db:generate
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/payroll_ci
+          # Add CI_DB_PASSWORD to GitHub repo secrets (Settings → Secrets → Actions)
+          DATABASE_URL: postgresql://postgres:${{ secrets.CI_DB_PASSWORD }}@localhost:5432/payroll_ci
 
       - name: Type check
         run: pnpm type-check
@@ -53,12 +54,12 @@ jobs:
       - name: Unit tests with coverage
         run: pnpm vitest run --reporter=verbose --coverage
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/payroll_ci
+          DATABASE_URL: postgresql://postgres:${{ secrets.CI_DB_PASSWORD }}@localhost:5432/payroll_ci
 
       - name: Build
         run: pnpm build
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/payroll_ci
+          DATABASE_URL: postgresql://postgres:${{ secrets.CI_DB_PASSWORD }}@localhost:5432/payroll_ci
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-key
 

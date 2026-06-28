@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma/client'
 import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { logActivity } from '@/lib/system-log'
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN']
+const ADMIN_ROLES = new Set(['SUPER_ADMIN', 'TENANT_ADMIN', 'HR_ADMIN'])
 
 const permissionRowSchema = z.object({
   pageKey:    z.string().min(1),
@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params
     const { profile, orgId } = await getProfileOrRedirect()
 
-    if (!ADMIN_ROLES.includes(profile.role)) {
+    if (!ADMIN_ROLES.has(profile.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

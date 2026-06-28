@@ -24,12 +24,9 @@ function RecursiveNode({ node }: Readonly<{ node: OrgNode }>) {
     <TreeNode
       label={
         <div className="flex flex-col items-center">
-          <div
-            role="button"
-            tabIndex={0}
+          <a
+            href={`/employees/${node.id}/personal`}
             className="relative bg-white border border-gray-200 rounded-xl shadow-sm px-4 py-3 w-44 cursor-pointer hover:border-blue-400 hover:shadow-md transition-all select-none"
-            onClick={() => { globalThis.location.href = `/employees/${node.id}/personal` }}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') globalThis.location.href = `/employees/${node.id}/personal` }}
           >
             <div className="flex items-start gap-2">
               <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
@@ -58,7 +55,7 @@ function RecursiveNode({ node }: Readonly<{ node: OrgNode }>) {
                   : <ChevronDown className="w-3 h-3" />}
               </button>
             )}
-          </div>
+          </a>
           {node.children.length > 0 && <div className="h-3" />}
         </div>
       }
@@ -99,12 +96,9 @@ export function OrgChartTree({ roots, allEmployees }: Props) {
             lineBorderRadius="8px"
             label={
               <div className="flex flex-col items-center">
-                <div
-                  role="button"
-                  tabIndex={0}
+                <a
+                  href={`/employees/${roots[0]!.id}/personal`}
                   className="bg-blue-600 text-white border-0 rounded-xl shadow-md px-4 py-3 w-48 cursor-pointer hover:bg-blue-700 transition-colors"
-                  onClick={() => { globalThis.location.href = `/employees/${roots[0]!.id}/personal` }}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') globalThis.location.href = `/employees/${roots[0]!.id}/personal` }}
                 >
                   <div className="flex items-start gap-2">
                     <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center shrink-0 mt-0.5">
@@ -118,7 +112,7 @@ export function OrgChartTree({ roots, allEmployees }: Props) {
                       </span>
                     </div>
                   </div>
-                </div>
+                </a>
               </div>
             }
           >
@@ -136,12 +130,9 @@ export function OrgChartTree({ roots, allEmployees }: Props) {
                 lineColor="#cbd5e1"
                 lineBorderRadius="8px"
                 label={
-                  <div
-                    role="button"
-                    tabIndex={0}
+                  <a
+                    href={`/employees/${root.id}/personal`}
                     className="bg-white border-2 border-blue-300 rounded-xl shadow-sm px-4 py-3 w-44 cursor-pointer hover:border-blue-500 transition-colors"
-                    onClick={() => { globalThis.location.href = `/employees/${root.id}/personal` }}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') globalThis.location.href = `/employees/${root.id}/personal` }}
                   >
                     <div className="flex items-start gap-2">
                       <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
@@ -155,7 +146,7 @@ export function OrgChartTree({ roots, allEmployees }: Props) {
                         </span>
                       </div>
                     </div>
-                  </div>
+                  </a>
                 }
               >
                 {root.children.map((child) => (

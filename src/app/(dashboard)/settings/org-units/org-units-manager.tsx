@@ -300,7 +300,7 @@ export default function OrgUnitsManager({
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1">
-              <label id="unit-level-label" className="text-sm font-medium">Level <span className="text-destructive">*</span></label>
+              <p id="unit-level-label" className="text-sm font-medium">Level <span className="text-destructive">*</span></p>
               <Select
                 aria-labelledby="unit-level-label"
                 value={form.levelId}
