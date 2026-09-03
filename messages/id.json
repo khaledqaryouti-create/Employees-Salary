@@ -690,7 +690,9 @@
     "signingIn": "Sedang masuk…",
     "signIn": "Masuk",
     "noAccount": "Belum punya akun?",
-    "contactAdmin": "Hubungi administrator Anda"
+    "contactAdmin": "Hubungi administrator Anda",
+    "orgLoadError": "Tidak dapat memuat perusahaan. Silakan coba lagi.",
+    "retry": "Coba Lagi"
   },
   "sites": {
     "title": "Sites",

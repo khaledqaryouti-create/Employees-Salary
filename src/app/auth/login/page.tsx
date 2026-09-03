@@ -32,6 +32,7 @@ export default function LoginPage() {
   const [loading, setLoading]                 = useState(false)
   const [orgs, setOrgs]                       = useState<OrgOption[]>([])
   const [loadingOrgs, setLoadingOrgs]         = useState(true)
+  const [orgLoadError, setOrgLoadError]       = useState(false)
   const [selectedOrg, setSelectedOrg]         = useState('')
   const [branches, setBranches]               = useState<BranchOption[]>([])
   const [loadingBranches, setLoadingBranches] = useState(false)
@@ -64,23 +65,27 @@ export default function LoginPage() {
   useEffect(() => { branchesRef.current = branches }, [branches])
   useEffect(() => { hasFetchedRef.current = hasFetched }, [hasFetched])
 
-  // ── Load company list on mount ────────────────────────────────────────────
-  useEffect(() => {
-    void (async () => {
-      try {
-        const res = await fetch('/api/auth/organizations')
-        if (res.ok) {
-          const data = await res.json() as OrgOption[]
-          setOrgs(data)
-          if (data.length === 1) setSelectedOrg(data[0]!.id)
-        }
-      } catch {
-        // Silent fail — form still works without the company list
-      } finally {
-        setLoadingOrgs(false)
+  // ── Load company list ────────────────────────────────────────────────────
+  const loadOrgs = useCallback(async () => {
+    setLoadingOrgs(true)
+    setOrgLoadError(false)
+    try {
+      const res = await fetch('/api/auth/organizations')
+      if (res.ok) {
+        const data = await res.json() as OrgOption[]
+        setOrgs(data)
+        if (data.length === 1) setSelectedOrg(data[0]!.id)
+      } else {
+        setOrgLoadError(true)
       }
-    })()
+    } catch {
+      setOrgLoadError(true)
+    } finally {
+      setLoadingOrgs(false)
+    }
   }, [])
+
+  useEffect(() => { void loadOrgs() }, [loadOrgs])
 
   // When the user changes company, reset branch selection and fetch state
   function handleOrgChange(orgId: string) {
@@ -273,6 +278,17 @@ export default function LoginPage() {
                     <div className="flex items-center gap-2 text-sm text-gray-500 h-10">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span>{t('loadingCompanies')}</span>
+                    </div>
+                  ) : orgLoadError ? (
+                    <div className="flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                      <span className="text-sm text-red-600">{t('orgLoadError')}</span>
+                      <button
+                        type="button"
+                        onClick={() => { void loadOrgs() }}
+                        className="ml-3 text-sm font-medium text-red-700 underline hover:no-underline"
+                      >
+                        {t('retry')}
+                      </button>
                     </div>
                   ) : (
                     <select

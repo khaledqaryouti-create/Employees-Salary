@@ -690,7 +690,9 @@
     "signingIn": "Sedang log masuk…",
     "signIn": "Log masuk",
     "noAccount": "Tiada akaun?",
-    "contactAdmin": "Hubungi pentadbir anda"
+    "contactAdmin": "Hubungi pentadbir anda",
+    "orgLoadError": "Tidak dapat memuatkan syarikat. Sila cuba lagi.",
+    "retry": "Cuba Lagi"
   },
   "sites": {
     "title": "Sites",

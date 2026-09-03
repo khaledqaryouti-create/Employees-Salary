@@ -690,7 +690,9 @@
     "signingIn": "登录中…",
     "signIn": "登录",
     "noAccount": "没有账户？",
-    "contactAdmin": "联系您的管理员"
+    "contactAdmin": "联系您的管理员",
+    "orgLoadError": "无法加载公司。请重试。",
+    "retry": "重试"
   },
   "sites": {
     "title": "Sites",

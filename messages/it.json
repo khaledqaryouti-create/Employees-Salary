@@ -690,7 +690,9 @@
     "signingIn": "Accesso in corso…",
     "signIn": "Accedi",
     "noAccount": "Non hai un account?",
-    "contactAdmin": "Contatta il tuo amministratore"
+    "contactAdmin": "Contatta il tuo amministratore",
+    "orgLoadError": "Impossibile caricare le aziende. Riprovare.",
+    "retry": "Riprova"
   },
   "sites": {
     "title": "Sites",

@@ -849,7 +849,9 @@
     "signingIn": "Signing in…",
     "signIn": "Sign in",
     "noAccount": "Don't have an account?",
-    "contactAdmin": "Contact your administrator"
+    "contactAdmin": "Contact your administrator",
+    "orgLoadError": "Could not load companies. Please retry.",
+    "retry": "Retry"
   },
   "countries": {
     "title": "Countries",

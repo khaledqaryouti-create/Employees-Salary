@@ -690,7 +690,9 @@
     "signingIn": "サインイン中…",
     "signIn": "サインイン",
     "noAccount": "アカウントをお持ちでないですか？",
-    "contactAdmin": "管理者にお問い合わせください"
+    "contactAdmin": "管理者にお問い合わせください",
+    "orgLoadError": "企業を読み込めませんでした。再試行してください。",
+    "retry": "再試行"
   },
   "sites": {
     "title": "Sites",
