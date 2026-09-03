@@ -44,8 +44,12 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
+      // Vercel auto-injects VERCEL_URL (preview) and VERCEL_PROJECT_PRODUCTION_URL (production).
+      // Add them here so the CSRF check passes on every Vercel deployment.
       allowedOrigins: [
-        `${deploy.host.replace(/^https?:\/\//, '')}:${deploy.port}`,
+        `${deploy.host.replace(/^https?:\/\//, '')}:${deploy.port}`, // local dev
+        ...(process.env.VERCEL_URL ? [process.env.VERCEL_URL] : []),                                      // preview
+        ...(process.env.VERCEL_PROJECT_PRODUCTION_URL ? [process.env.VERCEL_PROJECT_PRODUCTION_URL] : []), // production
       ],
     },
   },
