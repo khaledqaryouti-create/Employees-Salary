@@ -68,6 +68,89 @@ export function payslipReadyHtml(data: PayslipReadyEmailData): string {
   )
 }
 
+export interface DvrReviewReminderEmailData {
+  siteName: string
+  nextReviewDate: string
+  daysRemaining: number
+  loginUrl: string
+}
+
+export interface TrainingExpiryReminderEmailData {
+  employeeName: string
+  trainingType: string
+  siteName: string
+  expiryDate: string
+  daysRemaining: number
+  loginUrl: string
+}
+
+export interface CorrectiveActionOverdueEmailData {
+  assigneeName: string
+  actionTitle: string
+  siteName: string
+  dueDate: string
+  daysPastDue: number
+  loginUrl: string
+}
+
+export function dvrReviewReminderHtml(data: DvrReviewReminderEmailData): string {
+  const urgency =
+    data.daysRemaining <= 7
+      ? { bg: '#fef2f2', border: '#fecaca', text: '#991b1b', label: 'URGENT' }
+      : data.daysRemaining <= 14
+        ? { bg: '#fffbeb', border: '#fde68a', text: '#92400e', label: 'ACTION REQUIRED' }
+        : { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af', label: 'UPCOMING' }
+
+  return baseTemplate(
+    `DVR Review Due in ${data.daysRemaining} days — ${data.siteName}`,
+    `<h2 style="color: #111827; margin-top: 0;">DVR Annual Review Due</h2>
+    <p style="color: #374151;">The Document of Risk Assessment (DVR) for <strong>${data.siteName}</strong> is due for its periodic review.</p>
+    <div style="background: ${urgency.bg}; border: 1px solid ${urgency.border}; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <p style="margin: 0 0 4px; font-size: 12px; font-weight: bold; color: ${urgency.text}; text-transform: uppercase; letter-spacing: 0.05em;">${urgency.label}</p>
+      <p style="margin: 0; font-size: 18px; font-weight: bold; color: ${urgency.text};">${data.daysRemaining} day${data.daysRemaining === 1 ? '' : 's'} remaining</p>
+      <p style="margin: 4px 0 0; font-size: 14px; color: #374151;">Review due by: <strong>${data.nextReviewDate}</strong></p>
+    </div>
+    <p style="color: #374151; font-size: 14px;">Please log in to the system to initiate a new review cycle and ensure all risk assessments are up to date.</p>
+    <a href="${data.loginUrl}" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">Open DVR</a>`
+  )
+}
+
+export function trainingExpiryReminderHtml(data: TrainingExpiryReminderEmailData): string {
+  const urgent = data.daysRemaining <= 14
+  const bandBg = urgent ? '#fef2f2' : '#fffbeb'
+  const bandBorder = urgent ? '#fecaca' : '#fde68a'
+  const bandText = urgent ? '#991b1b' : '#92400e'
+
+  return baseTemplate(
+    `Training Record Expiring — ${data.siteName}`,
+    `<h2 style="color: #111827; margin-top: 0;">Training Record Expiring Soon</h2>
+    <p style="color: #374151;">Dear ${data.employeeName},</p>
+    <p style="color: #374151;">Your <strong>${data.trainingType}</strong> training record for site <strong>${data.siteName}</strong> is expiring soon.</p>
+    <div style="background: ${bandBg}; border: 1px solid ${bandBorder}; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <p style="margin: 0 0 4px; font-size: 14px; color: ${bandText};">Expires on: <strong>${data.expiryDate}</strong></p>
+      <p style="margin: 0; font-size: 14px; color: ${bandText};">${data.daysRemaining} day${data.daysRemaining === 1 ? '' : 's'} remaining</p>
+    </div>
+    <p style="color: #374151; font-size: 14px;">Please arrange a renewal training session and update the record in the system.</p>
+    <a href="${data.loginUrl}" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">View Training Records</a>`
+  )
+}
+
+export function correctiveActionOverdueHtml(data: CorrectiveActionOverdueEmailData): string {
+  return baseTemplate(
+    `Overdue Corrective Action — ${data.siteName}`,
+    `<h2 style="color: #111827; margin-top: 0;">Corrective Action Overdue</h2>
+    <p style="color: #374151;">Dear ${data.assigneeName},</p>
+    <p style="color: #374151;">A corrective action assigned to you for site <strong>${data.siteName}</strong> is overdue.</p>
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <p style="margin: 0 0 4px; font-size: 16px; font-weight: bold; color: #991b1b;">${data.actionTitle}</p>
+      <p style="margin: 4px 0 0; font-size: 14px; color: #374151;">Due date: <strong>${data.dueDate}</strong></p>
+      <p style="margin: 4px 0 0; font-size: 14px; color: #dc2626;"><strong>${data.daysPastDue} day${data.daysPastDue === 1 ? '' : 's'} overdue</strong></p>
+    </div>
+    <p style="color: #374151; font-size: 14px;">Please complete this action or update its status in the system as soon as possible.</p>
+    <a href="${data.loginUrl}" style="display: inline-block; background: #dc2626; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">View Corrective Actions</a>`
+  )
+}
+
 export function leaveStatusHtml(data: LeaveApprovedEmailData): string {
   const statusColor = data.status === 'APPROVED' ? '#16a34a' : '#dc2626'
   return baseTemplate(

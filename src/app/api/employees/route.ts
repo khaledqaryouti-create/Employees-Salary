@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma/client'
 import { success, error, handlePrismaError } from '@/lib/errors/api-response'
 import { logger } from '@/lib/errors/logger'
 import { logActivity } from '@/lib/system-log'
-import { getActiveBranchId } from '@/lib/auth/active-branch'
+import { getActiveBranchId, branchEmployeeFilter } from '@/lib/auth/active-branch'
 import { getProfileOrRedirect } from '@/lib/auth/get-profile'
 import { z } from 'zod'
 
@@ -35,13 +35,11 @@ export async function GET(request: Request) {
     const country = searchParams.get('country') ?? ''
 
     // Apply branch scoping: filter employees whose orgUnit belongs to the active branch
-    const activeBranchId = await getActiveBranchId(orgId)
+    const branchFilter = await branchEmployeeFilter(orgId)
 
     const where = {
       organizationId: orgId,
-      ...(activeBranchId && {
-        orgUnit: { branchId: activeBranchId },
-      }),
+      ...branchFilter,
       ...(search && {
         OR: [
           { fullName: { contains: search, mode: 'insensitive' as const } },
@@ -88,10 +86,13 @@ export async function POST(request: Request) {
     const fullName = [firstName, secondName, thirdName, lastName].filter(Boolean).join(' ')
     const employeeData = { ...rest, firstName, secondName, thirdName, lastName, fullName }
 
+    const activeBranchId = await getActiveBranchId(orgId)
+
     const employee = await prisma.employee.create({
       data: {
         ...employeeData,
         organizationId: orgId,
+        ...(activeBranchId && { branchId: activeBranchId }),
         joinDate: new Date(employeeData.joinDate),
         salaryStructure: {
           create: {

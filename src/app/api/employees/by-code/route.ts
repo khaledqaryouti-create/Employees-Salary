@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma/client'
 import { getProfileOrRedirect } from '@/lib/auth/get-profile'
+import { branchEmployeeFilter } from '@/lib/auth/active-branch'
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,11 +14,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Employee code is required' }, { status: 400 })
     }
 
+    const branchFilter = await branchEmployeeFilter(orgId)
+
     const employee = await prisma.employee.findFirst({
       where: {
         organizationId: orgId,
         employeeNumber: { equals: code, mode: 'insensitive' },
         isActive: true,
+        ...branchFilter,
       },
       select: {
         id:             true,

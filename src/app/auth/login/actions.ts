@@ -44,12 +44,17 @@ async function activateBranchForUser(
 }
 
 export async function loginAction(formData: FormData) {
-  const email    = formData.get('email') as string
-  const password = formData.get('password') as string
-  const branchId = (formData.get('branchId') as string | null) ?? ''
+  const email          = formData.get('email') as string
+  const password       = formData.get('password') as string
+  const branchId       = (formData.get('branchId') as string | null) ?? ''
+  const organizationId = (formData.get('organizationId') as string | null)?.trim() || null
 
   if (!email || !password) {
     return { error: 'Please enter your email and password.' }
+  }
+
+  if (!organizationId) {
+    return { error: 'Please select a company before signing in.' }
   }
 
   const cookieStore = await cookies()
@@ -58,9 +63,10 @@ export async function loginAction(formData: FormData) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      cookieEncoding: 'base64url',
       cookies: {
         getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, _headers) {
           cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
         },
       },
@@ -83,8 +89,15 @@ export async function loginAction(formData: FormData) {
       select: { branchId: true, role: true, organizationId: true },
     })
 
-    const bypassRoles = ['SUPER_ADMIN', 'TENANT_ADMIN']
-    const needsBranchSelection = profile && !bypassRoles.includes(profile.role) && profile.organizationId
+    // Cross-org guard: SUPER_ADMINs have no org and can access any tenant;
+    // all other roles must belong to the selected organization.
+    const bypassRoles = new Set(['SUPER_ADMIN', 'TENANT_ADMIN'])
+    const isSuperAdmin = profile?.role === 'SUPER_ADMIN'
+    if (!isSuperAdmin && profile?.organizationId && profile.organizationId !== organizationId) {
+      return { error: 'The selected company does not match your account. Please try again.' }
+    }
+
+    const needsBranchSelection = profile && !bypassRoles.has(profile.role) && profile.organizationId
     if (needsBranchSelection) {
       const activated = await activateBranchForUser(cookieStore, userId, profile, branchId)
       if (!activated) redirect('/auth/select-branch')

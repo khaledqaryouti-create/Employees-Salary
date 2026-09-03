@@ -47,6 +47,9 @@ import {
   Receipt,
   Banknote,
   UsersRound,
+  FolderKanban,
+  ShieldAlert,
+  Mail,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -85,11 +88,25 @@ export function Sidebar({ organizationName = 'PayrollPro', userRole }: SidebarPr
     { label: t('salaryTransactions'), href: '/payroll/salary-transactions',     icon: Receipt },
     { label: t('leave'),     href: '/leave',     icon: CalendarDays },
     { label: t('reports'),   href: '/reports',   icon: BarChart3 },
+    {
+      label: t('projects'),
+      href: '/projects',
+      icon: FolderKanban,
+      children: [
+        { label: t('allProjects'), href: '/projects',        icon: FolderKanban },
+        { label: t('assets'),      href: '/assets',          icon: Package },
+      ],
+    },
+    { label: t('safetyDashboard'), href: '/safety-dashboard', icon: ShieldAlert },
   ]
 
   const settingsItems: NavItem[] = [
-    { label: t('formulaBuilder'),  href: '/settings/formula-builder', icon: ShieldCheck },
-    { label: t('taxTables'),       href: '/settings/tax-tables',      icon: Globe },
+    { label: t('formulaBuilder'),       href: '/settings/formula-builder',    icon: ShieldCheck },
+    { label: t('sites'),                href: '/settings/sites',               icon: Building2 },
+    { label: t('safetyRequirements'),   href: '/settings/safety-requirements', icon: Shield },
+    { label: t('countries'),            href: '/settings/countries',           icon: Globe },
+    { label: t('emailNotifications'),  href: '/settings/email-notifications', icon: Mail },
+    { label: t('taxTables'),            href: '/settings/tax-tables',          icon: Globe },
     { label: t('salaryComponents'),href: '/settings/salary-components',icon: Calculator },
     { label: t('leaveTypes'),      href: '/settings/leave-types',     icon: Umbrella },
     { label: t('jobTitles'),       href: '/settings/job-titles',      icon: Briefcase },

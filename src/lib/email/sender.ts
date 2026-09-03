@@ -1,11 +1,28 @@
 import { Resend } from 'resend'
 import { logger } from '@/lib/errors/logger'
+import { prisma } from '@/lib/prisma/client'
 
 export interface SendEmailOptions {
   to: string
   subject: string
   html: string
   from?: string
+  orgId?: string
+  attachments?: { filename: string; content: Buffer | Uint8Array }[]
+}
+
+async function resolveFrom(opts: SendEmailOptions): Promise<string> {
+  if (opts.from) return opts.from
+
+  if (opts.orgId) {
+    const settings = await prisma.organizationEmailSettings.findUnique({
+      where:  { organizationId: opts.orgId },
+      select: { fromName: true, fromEmail: true },
+    })
+    if (settings) return `${settings.fromName} <${settings.fromEmail}>`
+  }
+
+  return process.env['EMAIL_FROM'] ?? 'PayrollPro <noreply@payrollpro.app>'
 }
 
 export async function sendEmail(opts: SendEmailOptions): Promise<boolean> {
@@ -16,14 +33,18 @@ export async function sendEmail(opts: SendEmailOptions): Promise<boolean> {
   }
 
   const resend = new Resend(apiKey)
-  const from = opts.from ?? process.env['EMAIL_FROM'] ?? 'PayrollPro <noreply@payrollpro.app>'
+  const from = await resolveFrom(opts)
 
   try {
     const { error } = await resend.emails.send({
       from,
-      to: opts.to,
-      subject: opts.subject,
-      html: opts.html,
+      to:          opts.to,
+      subject:     opts.subject,
+      html:        opts.html,
+      attachments: opts.attachments?.map((a) => ({
+        filename: a.filename,
+        content:  Buffer.isBuffer(a.content) ? a.content : Buffer.from(a.content),
+      })),
     })
 
     if (error) {

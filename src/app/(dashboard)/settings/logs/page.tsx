@@ -3,8 +3,17 @@ import { prisma } from '@/lib/prisma/client'
 import { getTranslations } from 'next-intl/server'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { FileText, Bot, Activity } from 'lucide-react'
+import { FileText, Bot, Activity, ShieldAlert } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
+
+const SAFETY_ACTIONS = [
+  'SITE_CREATED', 'SITE_UPDATED', 'SITE_DELETED',
+  'DVR_STATUS_CHANGED', 'DVR_UPDATED', 'DVR_REVIEW_CYCLE_STARTED', 'DVR_SIGNED',
+  'SAFETY_ROLE_APPOINTED', 'SAFETY_ROLE_UPDATED', 'SAFETY_ROLE_REMOVED',
+  'CORRECTIVE_ACTION_CREATED', 'CORRECTIVE_ACTION_UPDATED', 'CORRECTIVE_ACTION_DELETED', 'CORRECTIVE_ACTIONS_GENERATED',
+  'TRAINING_RECORD_CREATED', 'TRAINING_RECORD_UPDATED', 'TRAINING_RECORD_DELETED',
+  'INCIDENT_REPORTED', 'INCIDENT_UPDATED', 'INCIDENT_DELETED', 'INCIDENT_ACTIONS_GENERATED',
+]
 
 const ACTION_COLORS: Record<string, string> = {
   EMPLOYEE_CREATED:    'bg-green-100 text-green-700',
@@ -26,6 +35,28 @@ const ACTION_COLORS: Record<string, string> = {
   RULE_CREATED:        'bg-violet-100 text-violet-700',
   RULE_UPDATED:        'bg-violet-100 text-violet-700',
   RULE_DELETED:        'bg-red-100 text-red-700',
+  // Safety actions
+  SITE_CREATED:                  'bg-green-100 text-green-700',
+  SITE_UPDATED:                  'bg-blue-100 text-blue-700',
+  SITE_DELETED:                  'bg-red-100 text-red-700',
+  DVR_STATUS_CHANGED:            'bg-blue-100 text-blue-700',
+  DVR_UPDATED:                   'bg-sky-100 text-sky-700',
+  DVR_REVIEW_CYCLE_STARTED:      'bg-cyan-100 text-cyan-700',
+  DVR_SIGNED:                    'bg-purple-100 text-purple-700',
+  SAFETY_ROLE_APPOINTED:         'bg-indigo-100 text-indigo-700',
+  SAFETY_ROLE_UPDATED:           'bg-indigo-100 text-indigo-700',
+  SAFETY_ROLE_REMOVED:           'bg-red-100 text-red-700',
+  CORRECTIVE_ACTION_CREATED:     'bg-amber-100 text-amber-700',
+  CORRECTIVE_ACTION_UPDATED:     'bg-amber-100 text-amber-700',
+  CORRECTIVE_ACTION_DELETED:     'bg-red-100 text-red-700',
+  CORRECTIVE_ACTIONS_GENERATED:  'bg-orange-100 text-orange-700',
+  TRAINING_RECORD_CREATED:       'bg-teal-100 text-teal-700',
+  TRAINING_RECORD_UPDATED:       'bg-teal-100 text-teal-700',
+  TRAINING_RECORD_DELETED:       'bg-red-100 text-red-700',
+  INCIDENT_REPORTED:             'bg-red-100 text-red-700',
+  INCIDENT_UPDATED:              'bg-orange-100 text-orange-700',
+  INCIDENT_DELETED:              'bg-red-100 text-red-700',
+  INCIDENT_ACTIONS_GENERATED:    'bg-orange-100 text-orange-700',
 }
 
 function actionLabel(action: string): string {
@@ -39,9 +70,9 @@ export default async function SystemLogsPage() {
   const { orgId } = await getProfileOrRedirect()
   const t = await getTranslations('settings')
 
-  const [systemLogs, aiLogs, recentRuns] = await Promise.all([
+  const [systemLogs, aiLogs, recentRuns, safetyLogs] = await Promise.all([
     prisma.systemLog.findMany({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, action: { notIn: SAFETY_ACTIONS } },
       orderBy: { createdAt: 'desc' },
       take: 100,
     }),
@@ -55,6 +86,11 @@ export default async function SystemLogsPage() {
       orderBy: { createdAt: 'desc' },
       take: 20,
       select: { id: true, name: true, status: true, createdAt: true, employeeCount: true },
+    }),
+    prisma.systemLog.findMany({
+      where: { organizationId: orgId, action: { in: SAFETY_ACTIONS } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
     }),
   ])
 
@@ -181,6 +217,60 @@ export default async function SystemLogsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Safety Audit Trail */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-orange-600" />
+            Safety Audit Trail
+          </CardTitle>
+          <CardDescription>
+            All changes to sites, DVR documents, corrective actions, training records, and incidents ({safetyLogs.length} entries).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {safetyLogs.length === 0 ? (
+            <p className="text-sm text-gray-400">No safety changes recorded yet. Changes will appear here after you create or modify sites, DVR documents, corrective actions, training records, or incidents.</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {safetyLogs.map((log) => {
+                const detail = log.detail as Record<string, unknown> | null
+                return (
+                  <div key={log.id} className="flex items-start justify-between py-3 gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge className={`text-xs shrink-0 ${ACTION_COLORS[log.action] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {actionLabel(log.action)}
+                        </Badge>
+                        {detail?.siteName ? (
+                          <span className="text-xs text-gray-500">Site: {String(detail.siteName)}</span>
+                        ) : detail?.title ? (
+                          <span className="text-xs text-gray-500 truncate max-w-xs">{String(detail.title)}</span>
+                        ) : detail?.siteId ? (
+                          <span className="text-xs text-gray-500">Site ID: {String(detail.siteId).slice(0, 8)}…</span>
+                        ) : null}
+                        {detail?.newStatus ? (
+                          <span className="text-xs text-gray-400">→ {String(detail.newStatus)}</span>
+                        ) : null}
+                        {detail?.roleType ? (
+                          <span className="text-xs text-gray-400">{String(detail.roleType)}</span>
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {log.actorEmail ? (
+                          <><span className="font-medium text-gray-600">{log.actorEmail}</span> · </>
+                        ) : null}
+                        {formatDate(log.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </CardContent>

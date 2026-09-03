@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma/client'
 import { getProfileOrRedirect } from '@/lib/auth/get-profile'
+import { branchEmployeeFilter } from '@/lib/auth/active-branch'
 
 const addSchema = z.object({
   allowanceTypeId: z.string().min(1, 'Allowance type is required'),
@@ -17,8 +18,10 @@ export async function GET(
     const { id: employeeId } = await params
     const { orgId } = await getProfileOrRedirect()
 
+    const branchFilter = await branchEmployeeFilter(orgId)
+
     const employee = await prisma.employee.findFirst({
-      where: { id: employeeId, organizationId: orgId },
+      where: { id: employeeId, organizationId: orgId, ...branchFilter },
       select: { id: true },
     })
     if (!employee) {
@@ -58,8 +61,10 @@ export async function POST(
     const { id: employeeId } = await params
     const { orgId } = await getProfileOrRedirect()
 
+    const branchFilter = await branchEmployeeFilter(orgId)
+
     const employee = await prisma.employee.findFirst({
-      where: { id: employeeId, organizationId: orgId },
+      where: { id: employeeId, organizationId: orgId, ...branchFilter },
       select: { id: true },
     })
     if (!employee) {

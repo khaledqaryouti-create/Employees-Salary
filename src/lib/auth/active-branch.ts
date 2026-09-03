@@ -17,3 +17,19 @@ export async function getActiveBranchId(organizationId: string): Promise<string 
   })
   return branch?.id ?? null
 }
+
+/**
+ * Returns a Prisma `where` fragment that scopes an Employee query to the active branch.
+ * When no branch is active (e.g. SUPER_ADMIN / TENANT_ADMIN), returns {} so all employees
+ * are visible. Spread this into any employee findFirst / findMany where clause.
+ *
+ * @example
+ * const branchFilter = await branchEmployeeFilter(orgId)
+ * prisma.employee.findMany({ where: { organizationId: orgId, ...branchFilter } })
+ */
+export async function branchEmployeeFilter(
+  organizationId: string,
+): Promise<{ orgUnit?: { branchId: string } }> {
+  const branchId = await getActiveBranchId(organizationId)
+  return branchId ? { orgUnit: { branchId } } : {}
+}

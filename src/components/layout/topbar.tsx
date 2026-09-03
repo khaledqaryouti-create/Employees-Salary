@@ -44,7 +44,6 @@ interface TopbarProps {
 
 function LanguageToggle({ orgLocale }: { readonly orgLocale: Locale }) {
   const currentLocale = useLocale() as Locale
-  const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   // Primary locales: English + tenant's language (always shown at top)
@@ -60,7 +59,7 @@ function LanguageToggle({ orgLocale }: { readonly orgLocale: Locale }) {
   function handleSelect(locale: Locale) {
     startTransition(async () => {
       await setLocale(locale)
-      router.refresh()
+      globalThis.location.reload()
     })
   }
 

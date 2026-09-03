@@ -71,6 +71,32 @@ enum NotificationType {
   COMPLIANCE_DEADLINE
 }
 
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum AllocationMode {
+  PERCENTAGE
+  HOURS
+}
+
+enum AssignmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum BudgetCategory {
+  LABOR
+  ASSETS
+  OTHER
+}
+
 // ─── ORGANIZATION (TENANT) ────────────────────────────────────────────────────
 
 model Organization {
@@ -131,9 +157,53 @@ model Organization {
   userGroups                UserGroup[]
   salaryTransactions        SalaryTransaction[]
   allowanceTypes            AllowanceType[]
+  projects                  Project[]
+  sites                     Site[]
+  dvrSetups                 DvrSetup[]
+  safetyRoleAppointments    SafetyRoleAppointment[]
+  homogeneousWorkerGroups   HomogeneousWorkerGroup[]
+  correctiveActions         CorrectiveAction[]
+  siteTrainingRecords       SiteTrainingRecord[]
+  siteIncidents             SiteIncident[]
+  emailSettings             OrganizationEmailSettings?
+  contractors               Contractor[]
 
   @@index([slug])
   @@index([isActive])
+}
+
+model OrganizationEmailSettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  fromName                String  @default("PayrollPro")
+  fromEmail               String  @default("noreply@payrollpro.app")
+
+  dvrReminderEnabled      Boolean @default(true)
+  trainingReminderEnabled Boolean @default(true)
+  actionReminderEnabled   Boolean @default(true)
+
+  schedulerEnabled        Boolean @default(true)
+  schedulerHour           Int     @default(7)
+  dvrReminderDays         String  @default("30,14,7")
+  trainingReminderDays    String  @default("30,14")
+  actionGraceDays         Int     @default(0)
+  reminderRepeatFrequency String  @default("ONCE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SafetyReminderLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  reminderType   String
+  entityId       String
+  lastSentAt     DateTime @default(now())
+
+  @@unique([organizationId, reminderType, entityId])
+  @@index([organizationId])
 }
 
 // ─── BRANCH ───────────────────────────────────────────────────────────────────
@@ -185,9 +255,68 @@ model Branch {
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 
+  // ─── Existing reverse relations ───────────────────────────────────────────
   orgUnits               OrgUnit[]
   profiles               Profile[]
   payrollRuns            PayrollRun[]
+
+  // ─── New reverse relations added for full branch scoping ─────────────────
+  employees              Employee[]
+  salaryTransactions     SalaryTransaction[]
+  salaryStructures       SalaryStructure[]
+  employeeExternalIds    EmployeeExternalId[]
+  payrollItems           PayrollItem[]
+  payslips               Payslip[]
+  salaryComponentValues  SalaryComponentValue[]
+  leaveRequests          LeaveRequest[]
+  leaveBalances          LeaveBalance[]
+  salaryComponents       SalaryComponent[]
+  customFields           CustomField[]
+  customFieldValues      CustomFieldValue[]
+  approvalWorkflows      ApprovalWorkflow[]
+  userGroups             UserGroup[]
+  glAccountMappings      GlAccountMapping[]
+  orgUnitLevels          OrgUnitLevel[]
+  branchBranding         TenantBranding[]
+  leaveTypes             LeaveType[]
+  countryRuleSets        CountryRuleSet[]
+  payrollRules           PayrollRule[]
+  configValues           ConfigValue[]
+  taxBrackets            TaxBracket[]
+  formulaVariables       FormulaVariable[]
+  jobFamilies            JobFamily[]
+  jobTitles              JobTitle[]
+  nationalities          Nationality[]
+  religions              Religion[]
+  attachmentTypes        AttachmentType[]
+  contactTypes           ContactType[]
+  healthStatuses         HealthStatus[]
+  birthPlaces            BirthPlace[]
+  assetTypes             AssetType[]
+  universities           University[]
+  faculties              Faculty[]
+  academicDegrees        AcademicDegree[]
+  competencyClassifications CompetencyClassification[]
+  competencies           Competency[]
+  trainingTypes          TrainingType[]
+  certificateTypes       CertificateType[]
+  deductionTypes         DeductionType[]
+  otherIncomeTypes       OtherIncomeType[]
+  overtimeTypes          OvertimeType[]
+  allowanceTypes         AllowanceType[]
+  systemLogs             SystemLog[]
+  aiAuditLogs            AiAuditLog[]
+  ruleAuditLogs          RuleAuditLog[]
+  notifications          Notification[]
+  userGroupPermissions   UserGroupPermission[]
+  profileUserGroups      ProfileUserGroup[]
+  projects               Project[]
+  resourceAssignments    ResourceAssignment[]
+  costDistributions      CostDistribution[]
+  sites                  Site[]
+  dvrSetups              DvrSetup[]
+  safetyRoleAppointments SafetyRoleAppointment[]
+  homogeneousWorkerGroups HomogeneousWorkerGroup[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -199,6 +328,8 @@ model UserGroup {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   description    String?
   isActive       Boolean      @default(true)
@@ -210,12 +341,15 @@ model UserGroup {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 model UserGroupPermission {
   id         String    @id @default(cuid())
   groupId    String
   group      UserGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  branchId   String?
+  branch     Branch?   @relation(fields: [branchId], references: [id])
   pageKey    String
   canView    Boolean   @default(false)
   canCreate  Boolean   @default(false)
@@ -232,6 +366,8 @@ model ProfileUserGroup {
   profile    Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
   groupId    String
   group      UserGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  branchId   String?
+  branch     Branch?   @relation(fields: [branchId], references: [id])
   assignedAt DateTime  @default(now())
 
   @@id([profileId, groupId])
@@ -244,12 +380,16 @@ model TenantBranding {
   id             String       @id @default(cuid())
   organizationId String       @unique
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   logoUrl        String?
   primaryColor   String       @default("#2563eb")
   accentColor    String       @default("#7c3aed")
   companyNameOnSlip String?
   payslipFooter  String?
   updatedAt      DateTime     @updatedAt
+
+  @@index([branchId])
 }
 
 // ─── USERS & AUTH ─────────────────────────────────────────────────────────────
@@ -283,6 +423,8 @@ model Employee {
   id               String         @id @default(cuid())
   organizationId   String
   organization     Organization   @relation(fields: [organizationId], references: [id])
+  branchId         String?
+  branch           Branch?        @relation(fields: [branchId], references: [id])
   profileId        String?        @unique
   profile          Profile?       @relation(fields: [profileId], references: [id])
   employeeNumber   String   @unique
@@ -322,11 +464,22 @@ model Employee {
   customFieldValues    CustomFieldValue[]
   externalIds          EmployeeExternalId[]
   salaryTransactions   SalaryTransaction[]
+  projectsManaged      Project[]            @relation("ProjectManager")
+  resourceAssignments  ResourceAssignment[]
+  costDistributions    CostDistribution[]
+  assetAssignments     AssetAssignment[]
+  safetyCompletions    ProjectSafetyRequirement[] @relation("SafetyCompletedBy")
+  safetyItemsAssigned  ProjectSafetyItem[]        @relation("SafetyItemAssignee")
+  safetyRoleAppointments    SafetyRoleAppointment[]
+  workerGroupMemberships    WorkerGroupMember[]
+  correctiveActionsAssigned CorrectiveAction[]    @relation("correctiveActionAssignee")
+  trainingRecords           SiteTrainingRecord[]  @relation("trainingRecordEmployee")
 
   @@index([organizationId, employeeNumber])
   @@index([organizationId])
   @@index([organizationId, country])
   @@index([organizationId, isActive])
+  @@index([branchId])
 }
 
 // ─── EMPLOYEE EXTERNAL IDs (for integrations) ─────────────────────────────────
@@ -335,6 +488,8 @@ model EmployeeExternalId {
   id         String   @id @default(cuid())
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  branchId   String?
+  branch     Branch?  @relation(fields: [branchId], references: [id])
   system     String   // e.g. "SAP", "GOV_PORTAL", "WPS", "ODOO", "ORACLE"
   externalId String
   label      String?  // optional human-readable label for this mapping
@@ -343,17 +498,22 @@ model EmployeeExternalId {
 
   @@unique([employeeId, system])
   @@index([system, externalId])
+  @@index([branchId])
 }
 
 model SalaryStructure {
   id             String   @id @default(cuid())
   employeeId     String   @unique
   employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?  @relation(fields: [branchId], references: [id])
   basicSalary    Float
   currency       String   @default("USD")
   components     SalaryComponentValue[]
   effectiveFrom  DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@index([branchId])
 }
 
 model SalaryComponentValue {
@@ -362,10 +522,13 @@ model SalaryComponentValue {
   salaryStructure   SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Cascade)
   componentId       String
   component         SalaryComponent @relation(fields: [componentId], references: [id])
+  branchId          String?
+  branch            Branch?         @relation(fields: [branchId], references: [id])
   amount            Float
   isPercentage      Boolean         @default(false)
 
   @@index([salaryStructureId])
+  @@index([branchId])
 }
 
 // ─── FORMULA ENGINE ───────────────────────────────────────────────────────────
@@ -374,6 +537,8 @@ model CountryRuleSet {
   id             String       @id @default(cuid())
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   country        String
   name           String
   year           Int          @default(2026)
@@ -387,12 +552,15 @@ model CountryRuleSet {
 
   @@index([organizationId, country])
   @@index([country, isDefault])
+  @@index([branchId])
 }
 
 model PayrollRule {
   id                   String          @id @default(cuid())
   ruleSetId            String
   ruleSet              CountryRuleSet  @relation(fields: [ruleSetId], references: [id], onDelete: Cascade)
+  branchId             String?
+  branch               Branch?         @relation(fields: [branchId], references: [id])
   name                 String
   description          String?
   type                 PayrollRuleType
@@ -408,11 +576,14 @@ model PayrollRule {
 
   @@index([ruleSetId, isActive])
   @@index([ruleSetId, order])
+  @@index([branchId])
 }
 
 model FormulaVariable {
   id             String                @id @default(cuid())
   organizationId String?
+  branchId       String?
+  branch         Branch?               @relation(fields: [branchId], references: [id])
   key            String
   label          String
   description    String?
@@ -423,12 +594,15 @@ model FormulaVariable {
 
   @@unique([organizationId, key])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 model ConfigValue {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   country        String
   key            String
   value          String
@@ -437,12 +611,15 @@ model ConfigValue {
 
   @@unique([organizationId, country, key])
   @@index([organizationId, country])
+  @@index([branchId])
 }
 
 model TaxBracket {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   country        String
   year           Int
   fromAmount     Float
@@ -453,12 +630,15 @@ model TaxBracket {
   order          Int          @default(0)
 
   @@index([organizationId, country, year])
+  @@index([branchId])
 }
 
 model SalaryComponent {
   id             String              @id @default(cuid())
   organizationId String
   organization   Organization        @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  branch         Branch?             @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   nameIt         String?
@@ -471,12 +651,15 @@ model SalaryComponent {
   values         SalaryComponentValue[]
 
   @@index([organizationId, isActive])
+  @@index([branchId])
 }
 
 model CustomField {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   fieldType      String       @default("TEXT")
   isRequired     Boolean      @default(false)
@@ -486,6 +669,7 @@ model CustomField {
   values         CustomFieldValue[]
 
   @@index([organizationId])
+  @@index([branchId])
 }
 
 model CustomFieldValue {
@@ -494,9 +678,12 @@ model CustomFieldValue {
   employee     Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   customFieldId String
   customField  CustomField @relation(fields: [customFieldId], references: [id])
+  branchId     String?
+  branch       Branch?     @relation(fields: [branchId], references: [id])
   value        String?
 
   @@unique([employeeId, customFieldId])
+  @@index([branchId])
 }
 
 // ─── PAYROLL ──────────────────────────────────────────────────────────────────
@@ -539,6 +726,8 @@ model PayrollItem {
   payrollRun     PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
   employeeId     String
   employee       Employee   @relation(fields: [employeeId], references: [id])
+  branchId       String?
+  branch         Branch?    @relation(fields: [branchId], references: [id])
   grossPay       Float
   netPay         Float
   totalDeductions Float
@@ -553,6 +742,7 @@ model PayrollItem {
   @@unique([payrollRunId, employeeId])
   @@index([payrollRunId])
   @@index([employeeId])
+  @@index([branchId])
 }
 
 model Payslip {
@@ -561,12 +751,15 @@ model Payslip {
   payrollRun     PayrollRun @relation(fields: [payrollRunId], references: [id])
   employeeId     String
   employee       Employee   @relation(fields: [employeeId], references: [id])
+  branchId       String?
+  branch         Branch?    @relation(fields: [branchId], references: [id])
   pdfUrl         String?
   generatedAt    DateTime   @default(now())
   emailSentAt    DateTime?
 
   @@unique([payrollRunId, employeeId])
   @@index([employeeId])
+  @@index([branchId])
 }
 
 // ─── LEAVE & ATTENDANCE ───────────────────────────────────────────────────────
@@ -575,6 +768,8 @@ model LeaveType {
   id              String        @id @default(cuid())
   organizationId  String?
   organization    Organization? @relation(fields: [organizationId], references: [id])
+  branchId        String?
+  branch          Branch?       @relation(fields: [branchId], references: [id])
   name            String
   nameAr          String?
   color           String?
@@ -590,6 +785,7 @@ model LeaveType {
   requests       LeaveRequest[]
 
   @@index([isActive])
+  @@index([branchId])
 }
 
 model LeaveBalance {
@@ -598,6 +794,8 @@ model LeaveBalance {
   employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   leaveTypeId  String
   leaveType    LeaveType @relation(fields: [leaveTypeId], references: [id])
+  branchId     String?
+  branch       Branch?   @relation(fields: [branchId], references: [id])
   year         Int
   totalDays    Float
   usedDays     Float     @default(0)
@@ -605,6 +803,7 @@ model LeaveBalance {
 
   @@unique([employeeId, leaveTypeId, year])
   @@index([employeeId])
+  @@index([branchId])
 }
 
 model LeaveRequest {
@@ -613,6 +812,8 @@ model LeaveRequest {
   employee     Employee           @relation(fields: [employeeId], references: [id])
   leaveTypeId  String
   leaveType    LeaveType          @relation(fields: [leaveTypeId], references: [id])
+  branchId     String?
+  branch       Branch?            @relation(fields: [branchId], references: [id])
   startDate    DateTime
   endDate      DateTime
   days         Float
@@ -625,6 +826,7 @@ model LeaveRequest {
   updatedAt    DateTime           @updatedAt
 
   @@index([employeeId, status])
+  @@index([branchId])
 }
 
 // ─── APPROVAL WORKFLOWS ───────────────────────────────────────────────────────
@@ -633,6 +835,8 @@ model ApprovalWorkflow {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   type           String       @default("PAYROLL")
   levels         Int          @default(1)
@@ -640,6 +844,7 @@ model ApprovalWorkflow {
   isActive       Boolean      @default(true)
 
   @@index([organizationId, type])
+  @@index([branchId])
 }
 
 // ─── AUDIT & LOGS ─────────────────────────────────────────────────────────────
@@ -648,6 +853,8 @@ model RuleAuditLog {
   id             String      @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  branch         Branch?     @relation(fields: [branchId], references: [id])
   ruleId         String?
   rule           PayrollRule? @relation(fields: [ruleId], references: [id])
   action         String
@@ -659,12 +866,15 @@ model RuleAuditLog {
 
   @@index([organizationId, changedAt])
   @@index([ruleId])
+  @@index([branchId])
 }
 
 model AiAuditLog {
   id              String       @id @default(cuid())
   organizationId  String
   organization    Organization @relation(fields: [organizationId], references: [id])
+  branchId        String?
+  branch          Branch?      @relation(fields: [branchId], references: [id])
   userId          String
   userRole        String
   page            String?
@@ -676,6 +886,7 @@ model AiAuditLog {
 
   @@index([organizationId, createdAt])
   @@index([userId])
+  @@index([branchId])
 }
 
 // ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
@@ -684,6 +895,8 @@ model Notification {
   id             String           @id @default(cuid())
   organizationId String
   organization   Organization     @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  branch         Branch?          @relation(fields: [branchId], references: [id])
   userId         String
   type           NotificationType
   title          String
@@ -692,6 +905,7 @@ model Notification {
   createdAt      DateTime         @default(now())
 
   @@index([organizationId, userId, isRead])
+  @@index([branchId])
 }
 
 // ─── GL ACCOUNT MAPPING ───────────────────────────────────────────────────────
@@ -700,6 +914,8 @@ model GlAccountMapping {
   id               String       @id @default(cuid())
   organizationId   String
   organization     Organization @relation(fields: [organizationId], references: [id])
+  branchId         String?
+  branch           Branch?      @relation(fields: [branchId], references: [id])
   componentName    String
   debitAccount     String
   creditAccount    String
@@ -707,6 +923,7 @@ model GlAccountMapping {
 
   @@unique([organizationId, componentName])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── COMPANY STRUCTURE ────────────────────────────────────────────────────────
@@ -715,6 +932,8 @@ model OrgUnitLevel {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String       // e.g. "Site", "Department", "Section", "Division"
   depth          Int          // 0 = top-level (Site), 1, 2, 3 …
   color          String?      // optional UI badge color
@@ -726,6 +945,7 @@ model OrgUnitLevel {
   @@unique([organizationId, depth])
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 model OrgUnit {
@@ -747,6 +967,7 @@ model OrgUnit {
   updatedAt      DateTime     @updatedAt
 
   employees      Employee[]
+  projects       Project[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -761,6 +982,8 @@ model JobFamily {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -772,12 +995,15 @@ model JobFamily {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 model JobTitle {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   jobFamilyId    String
   jobFamily      JobFamily    @relation(fields: [jobFamilyId], references: [id])
   name           String
@@ -794,6 +1020,7 @@ model JobTitle {
   @@unique([organizationId, name])
   @@index([organizationId])
   @@index([jobFamilyId])
+  @@index([branchId])
 }
 
 // ─── NATIONALITY LOOKUP ───────────────────────────────────────────────────────
@@ -802,6 +1029,8 @@ model Nationality {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   code           String?
@@ -811,6 +1040,7 @@ model Nationality {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── RELIGION LOOKUP ──────────────────────────────────────────────────────────
@@ -819,6 +1049,8 @@ model Religion {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   isActive       Boolean      @default(true)
@@ -827,6 +1059,7 @@ model Religion {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── ATTACHMENT TYPE LOOKUP ───────────────────────────────────────────────────
@@ -835,6 +1068,8 @@ model AttachmentType {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -845,6 +1080,7 @@ model AttachmentType {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── CONTACT TYPE LOOKUP ──────────────────────────────────────────────────────
@@ -853,6 +1089,8 @@ model ContactType {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -862,6 +1100,7 @@ model ContactType {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── HEALTH STATUS LOOKUP ─────────────────────────────────────────────────────
@@ -870,6 +1109,8 @@ model HealthStatus {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -879,6 +1120,7 @@ model HealthStatus {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── BIRTH PLACE LOOKUP ───────────────────────────────────────────────────────
@@ -887,6 +1129,8 @@ model BirthPlace {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -896,6 +1140,7 @@ model BirthPlace {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── ASSET TYPE LOOKUP ────────────────────────────────────────────────────────
@@ -904,6 +1149,8 @@ model AssetType {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -911,8 +1158,11 @@ model AssetType {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  assets         Asset[]
+
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── UNIVERSITY LOOKUP ────────────────────────────────────────────────────────
@@ -921,6 +1171,8 @@ model University {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   country        String?
@@ -931,6 +1183,7 @@ model University {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── FACULTY LOOKUP ───────────────────────────────────────────────────────────
@@ -939,6 +1192,8 @@ model Faculty {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   universityId   String
   university     University   @relation(fields: [universityId], references: [id], onDelete: Cascade)
   name           String
@@ -950,6 +1205,7 @@ model Faculty {
   @@unique([universityId, name])
   @@index([organizationId])
   @@index([universityId])
+  @@index([branchId])
 }
 
 // ─── ACADEMIC DEGREE LOOKUP ───────────────────────────────────────────────────
@@ -958,6 +1214,8 @@ model AcademicDegree {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -967,6 +1225,7 @@ model AcademicDegree {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── COMPETENCY CLASSIFICATION LOOKUP ────────────────────────────────────────
@@ -975,6 +1234,8 @@ model CompetencyClassification {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -985,6 +1246,7 @@ model CompetencyClassification {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── COMPETENCY LOOKUP ────────────────────────────────────────────────────────
@@ -993,6 +1255,8 @@ model Competency {
   id               String                   @id @default(cuid())
   organizationId   String
   organization     Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId         String?
+  branch           Branch?                  @relation(fields: [branchId], references: [id])
   classificationId String
   classification   CompetencyClassification @relation(fields: [classificationId], references: [id], onDelete: Cascade)
   name             String
@@ -1005,6 +1269,7 @@ model Competency {
   @@unique([classificationId, name])
   @@index([organizationId])
   @@index([classificationId])
+  @@index([branchId])
 }
 
 // ─── TRAINING TYPE LOOKUP ─────────────────────────────────────────────────────
@@ -1013,6 +1278,8 @@ model TrainingType {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -1022,6 +1289,7 @@ model TrainingType {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── CERTIFICATE TYPE LOOKUP ──────────────────────────────────────────────────
@@ -1030,6 +1298,8 @@ model CertificateType {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -1039,6 +1309,7 @@ model CertificateType {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── DEDUCTION TYPE LOOKUP ────────────────────────────────────────────────────
@@ -1047,6 +1318,8 @@ model DeductionType {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -1056,6 +1329,7 @@ model DeductionType {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── OTHER INCOME TYPE LOOKUP ─────────────────────────────────────────────────
@@ -1064,6 +1338,8 @@ model OtherIncomeType {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -1073,6 +1349,7 @@ model OtherIncomeType {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── OVERTIME TYPE LOOKUP ─────────────────────────────────────────────────────
@@ -1081,6 +1358,8 @@ model OvertimeType {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -1152,6 +1431,7 @@ model OvertimeType {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── ALLOWANCE TYPE LOOKUP ────────────────────────────────────────────────────
@@ -1160,6 +1440,8 @@ model AllowanceType {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   name           String
   nameAr         String?
   description    String?
@@ -1169,6 +1451,7 @@ model AllowanceType {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+  @@index([branchId])
 }
 
 // ─── SALARY TRANSACTIONS ─────────────────────────────────────────────────────
@@ -1177,6 +1460,8 @@ model SalaryTransaction {
   id              String       @id @default(cuid())
   organizationId  String
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId        String?
+  branch          Branch?      @relation(fields: [branchId], references: [id])
   employeeId      String
   employee        Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   transactionType String       // DEDUCTION | OTHER_INCOME | OVERTIME
@@ -1194,6 +1479,7 @@ model SalaryTransaction {
   @@index([organizationId, employeeId])
   @@index([organizationId, periodYear, periodMonth])
   @@index([organizationId, transactionType])
+  @@index([branchId])
 }
 
 // ─── SYSTEM ACTIVITY LOG ──────────────────────────────────────────────────────
@@ -1202,6 +1488,8 @@ model SystemLog {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
   actorId        String?
   actorEmail     String?
   action         String
@@ -1212,4 +1500,798 @@ model SystemLog {
 
   @@index([organizationId, createdAt])
   @@index([organizationId, action])
+  @@index([branchId])
+}
+
+// ─── PROJECT MODULE ───────────────────────────────────────────────────────────
+
+model Project {
+  id              String         @id @default(cuid())
+  organizationId  String
+  organization    Organization   @relation(fields: [organizationId], references: [id])
+  branchId        String?
+  branch          Branch?        @relation(fields: [branchId], references: [id])
+  code            String
+  name            String
+  description     String?
+  clientName      String?
+  status          ProjectStatus  @default(PLANNING)
+  startDate       DateTime
+  endDate         DateTime?
+  budgetAmount    Decimal?       @db.Decimal(14,2)
+  currency        String         @default("USD")
+  costCenter      String?
+  orgUnitId       String?
+  orgUnit         OrgUnit?       @relation(fields: [orgUnitId], references: [id])
+  managerId       String?
+  manager         Employee?      @relation("ProjectManager", fields: [managerId], references: [id])
+  billable               Boolean        @default(true)
+  allocationMode         AllocationMode @default(PERCENTAGE)
+  overheadFormula        String?
+  projectType            ProjectType?
+  countryId              String?
+  country                Country?       @relation(fields: [countryId], references: [id])
+  buildingHeightMeters   Float?
+  hasElectricalWorks     Boolean        @default(false)
+  hasMultipleContractors Boolean        @default(false)
+  occupancyType          String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  resourceAssignments  ResourceAssignment[]
+  assetAssignments     AssetAssignment[]
+  costDistributions    CostDistribution[]
+  budgetLines          ProjectBudgetLine[]
+  safetyRequirements   ProjectSafetyRequirement[]
+  safetyItems          ProjectSafetyItem[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([organizationId, status])
+  @@index([countryId])
+}
+
+model ResourceAssignment {
+  id             String           @id @default(cuid())
+  organizationId String
+  branchId       String?
+  branch         Branch?          @relation(fields: [branchId], references: [id])
+  projectId      String
+  project        Project          @relation(fields: [projectId], references: [id])
+  employeeId     String
+  employee       Employee         @relation(fields: [employeeId], references: [id])
+  role           String
+  allocationPct  Decimal?         @db.Decimal(5,2)
+  hoursPerWeek   Decimal?         @db.Decimal(6,2)
+  billableRate   Decimal?         @db.Decimal(12,2)
+  startDate      DateTime
+  endDate        DateTime?
+  status         AssignmentStatus @default(APPROVED)
+  approvedById   String?
+  approvedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([organizationId])
+  @@index([employeeId])
+  @@index([projectId])
+  @@index([branchId])
+}
+
+model ProjectSafetyRequirement {
+  id             String    @id @default(cuid())
+  organizationId String
+  branchId       String?
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id])
+  title          String
+  description    String?
+  mandatory      Boolean   @default(true)
+  completedAt    DateTime?
+  completedById  String?
+  completedBy    Employee? @relation("SafetyCompletedBy", fields: [completedById], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([organizationId])
+  @@index([branchId])
+}
+
+model CostDistribution {
+  id                        String         @id @default(cuid())
+  organizationId            String
+  branchId                  String?
+  branch                    Branch?        @relation(fields: [branchId], references: [id])
+  projectId                 String
+  project                   Project        @relation(fields: [projectId], references: [id])
+  employeeId                String
+  employee                  Employee       @relation(fields: [employeeId], references: [id])
+  periodStart               DateTime
+  periodEnd                 DateTime
+  allocatedCost             Decimal        @db.Decimal(14,2)
+  calculationMode           AllocationMode
+  snapshotAllocationPct     Decimal?       @db.Decimal(5,2)
+  snapshotTotalEmployeeCost Decimal?       @db.Decimal(14,2)
+  payrollRunId              String?
+  createdAt                 DateTime       @default(now())
+
+  @@unique([projectId, employeeId, periodStart, periodEnd])
+  @@index([organizationId])
+  @@index([employeeId, periodStart])
+  @@index([branchId])
+}
+
+model ProjectBudgetLine {
+  id             String         @id @default(cuid())
+  organizationId String
+  branchId       String?
+  projectId      String
+  project        Project        @relation(fields: [projectId], references: [id])
+  category       BudgetCategory
+  plannedAmount  Decimal        @db.Decimal(14,2)
+  periodStart    DateTime
+  periodEnd      DateTime
+  createdAt      DateTime       @default(now())
+
+  @@index([projectId])
+  @@index([organizationId])
+  @@index([branchId])
+}
+
+// ─── ASSET MANAGEMENT ────────────────────────────────────────────────────────
+
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  MAINTENANCE
+  RETIRED
+}
+
+enum DepreciationMethod {
+  STRAIGHT_LINE
+}
+
+enum ProjectType {
+  FACTORY_CONSTRUCTION
+  TOWER_HIGH_RISE
+  ELECTRICAL_INFRASTRUCTURE
+  DATA_CENTER
+  OTHER
+}
+
+enum SafetyRequirementCategory {
+  GENERAL_OHS
+  CONSTRUCTION_SITE
+  FIRE_SAFETY
+  ELECTRICAL_SAFETY
+  SPECIALIZED_RISK
+  ENVIRONMENTAL
+}
+
+enum SafetyItemStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  DONE
+  NOT_APPLICABLE
+}
+
+// ─── DVR READINESS & COMPLIANCE GATE ──────────────────────────────────────────
+
+enum DvrStatus {
+  SETUP
+  DATA_COLLECTION
+  READINESS_REVIEW
+  ASSESSMENT_IN_PROGRESS
+  CONSULTATION_AND_APPROVAL
+  APPROVED_AND_MONITORED
+}
+
+enum CorrectiveActionStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum TrainingRecordStatus {
+  VALID
+  EXPIRING_SOON
+  EXPIRED
+}
+
+enum IncidentType {
+  ACCIDENT
+  NEAR_MISS
+  DANGEROUS_OCCURRENCE
+  OCCUPATIONAL_DISEASE
+}
+
+enum IncidentSeverity {
+  FATAL
+  MAJOR
+  MINOR
+  FIRST_AID_ONLY
+  NO_INJURY
+}
+
+enum IncidentStatus {
+  REPORTED
+  UNDER_INVESTIGATION
+  CORRECTIVE_ACTIONS_ASSIGNED
+  CLOSED
+}
+
+enum CorrectiveActionPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum SafetyRoleType {
+  EMPLOYER
+  RSPP
+  ASPP
+  RLS
+  RLST
+  MEDICO_COMPETENTE
+  MANAGER
+  SUPERVISOR
+  FIRST_AID
+  FIRE_EMERGENCY
+}
+
+model Asset {
+  id                 String             @id @default(cuid())
+  organizationId     String
+  branchId           String?
+  assetTypeId        String
+  assetType          AssetType          @relation(fields: [assetTypeId], references: [id])
+  name               String
+  serialNumber       String?
+  assetTag           String?
+  acquisitionCost    Decimal            @db.Decimal(14,2)
+  residualValue      Decimal            @default(0) @db.Decimal(14,2)
+  acquisitionDate    DateTime
+  usefulLifeMonths   Int
+  depreciationMethod DepreciationMethod @default(STRAIGHT_LINE)
+  status             AssetStatus        @default(AVAILABLE)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  assignments AssetAssignment[]
+
+  @@index([organizationId])
+  @@index([branchId])
+}
+
+model AssetAssignment {
+  id             String    @id @default(cuid())
+  organizationId String
+  branchId       String?
+  assetId        String
+  asset          Asset     @relation(fields: [assetId], references: [id])
+  projectId      String?
+  project        Project?  @relation(fields: [projectId], references: [id])
+  employeeId     String?
+  employee       Employee? @relation(fields: [employeeId], references: [id])
+  startDate      DateTime
+  endDate        DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([assetId])
+  @@index([branchId])
+}
+
+model Country {
+  id   String @id @default(cuid())
+  code String @unique
+  name String
+
+  safetyRequirements SafetyRequirement[]
+  projects           Project[]
+}
+
+model SafetyRequirement {
+  id               String                    @id @default(cuid())
+  countryId        String
+  country          Country                   @relation(fields: [countryId], references: [id])
+  projectTypes     ProjectType[]
+  category         SafetyRequirementCategory
+  title            String
+  description      String
+  legalReference   String
+  triggerCondition String?
+  requiredRole     String?
+  requiredDocument String?
+  mandatory        Boolean                   @default(true)
+  recurring        Boolean                   @default(false)
+  recurrenceMonths Int?
+  sortOrder        Int                       @default(0)
+  active           Boolean                   @default(true)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  projectItems ProjectSafetyItem[]
+
+  @@index([countryId])
+  @@index([countryId, active])
+}
+
+model ProjectSafetyItem {
+  id                     String            @id @default(cuid())
+  organizationId         String
+  branchId               String?
+  projectId              String
+  project                Project           @relation(fields: [projectId], references: [id])
+  requirementId          String
+  requirement            SafetyRequirement @relation(fields: [requirementId], references: [id])
+  status                 SafetyItemStatus  @default(NOT_STARTED)
+  assignedToEmployeeId   String?
+  assignedTo             Employee?         @relation("SafetyItemAssignee", fields: [assignedToEmployeeId], references: [id])
+  dueDate                DateTime?
+  completedDate          DateTime?
+  evidenceFileUrl        String?
+  notes                  String?
+  verifiedByProfessional Boolean           @default(false)
+  verifiedByName         String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  @@unique([projectId, requirementId])
+  @@index([projectId])
+  @@index([organizationId])
+  @@index([requirementId])
+}
+
+// ─── SITES (DVR SCOPE) ─────────────────────────────────────────────────────────
+
+model Site {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId         String?
+  branch           Branch?      @relation(fields: [branchId], references: [id])
+  name             String
+  legalEntityName  String?
+  vatNumber        String?
+  taxCode          String?
+  atecoCode        String?
+  atecoDescription String?
+  address          String?
+  city             String?
+  country          String?
+  workingHours     String?
+  shiftPattern     String?
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  dvr               DvrSetup?
+  safetyRoles       SafetyRoleAppointment[]
+  workerGroups      HomogeneousWorkerGroup[]
+  processes         SiteProcess[]
+  siteEquipment     SiteEquipment[]
+  correctiveActions CorrectiveAction[]
+  trainingRecords   SiteTrainingRecord[]
+  incidents         SiteIncident[]
+  contractors       Contractor[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([branchId])
+}
+
+model DvrSetup {
+  id                    String    @id @default(cuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId              String?
+  branch                Branch?   @relation(fields: [branchId], references: [id])
+  siteId                String    @unique
+  site                  Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  documentNumber        String?
+  version               Int       @default(1)
+  status                DvrStatus @default(SETUP)
+  assessmentScope       String?
+  assessmentDate        DateTime?
+  nextReviewDate        DateTime?
+  reviewFrequencyMonths Int       @default(12)
+  overrideJustification String?
+  overrideById          String?
+  overrideAt            DateTime?
+  approvedAt            DateTime?
+  approvedByName        String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  approvalSignatures DvrApprovalSignature[]
+
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([status])
+}
+
+model DvrApprovalSignature {
+  id         String   @id @default(cuid())
+  dvrId      String
+  roleType   String
+  signerName String
+  signedAt   DateTime @default(now())
+  notes      String?
+
+  dvr DvrSetup @relation(fields: [dvrId], references: [id], onDelete: Cascade)
+
+  @@unique([dvrId, roleType])
+  @@index([dvrId])
+}
+
+model SafetyRoleAppointment {
+  id              String         @id @default(cuid())
+  organizationId  String
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId        String?
+  branch          Branch?        @relation(fields: [branchId], references: [id])
+  siteId          String
+  site            Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  roleType        SafetyRoleType
+  employeeId      String?
+  employee        Employee?      @relation(fields: [employeeId], references: [id])
+  externalName    String?
+  appointmentDate DateTime
+  expiryDate      DateTime?
+  documentUrl     String?
+  isActive        Boolean        @default(true)
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([organizationId])
+  @@index([siteId])
+  @@index([branchId])
+  @@index([siteId, roleType])
+  @@index([employeeId])
+}
+
+model HomogeneousWorkerGroup {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
+  siteId         String
+  site           Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  code           String
+  name           String
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  members         WorkerGroupMember[]
+  taskLinks       TaskWorkerGroup[]
+  trainingRecords SiteTrainingRecord[]
+
+  @@unique([siteId, code])
+  @@index([organizationId])
+  @@index([siteId])
+  @@index([branchId])
+}
+
+model WorkerGroupMember {
+  id         String                 @id @default(cuid())
+  groupId    String
+  group      HomogeneousWorkerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee               @relation(fields: [employeeId], references: [id])
+  addedAt    DateTime               @default(now())
+
+  @@unique([groupId, employeeId])
+  @@index([employeeId])
+  @@index([groupId])
+}
+
+// ─── DVR PHASE 2 — TASK INVENTORY & EQUIPMENT ─────────────────────────────────
+
+model SiteProcess {
+  id             String   @id @default(cuid())
+  organizationId String
+  siteId         String
+  site           Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  activities SiteActivity[]
+
+  @@unique([siteId, name])
+  @@index([organizationId])
+  @@index([siteId])
+}
+
+model SiteActivity {
+  id          String      @id @default(cuid())
+  processId   String
+  process     SiteProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  tasks SiteTask[]
+
+  @@unique([processId, name])
+  @@index([processId])
+}
+
+model SiteTask {
+  id                String       @id @default(cuid())
+  activityId        String
+  activity          SiteActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  name              String
+  description       String?
+  normalOp          Boolean      @default(true)
+  setupShutdown     Boolean      @default(false)
+  maintenance       Boolean      @default(false)
+  emergencyRecovery Boolean      @default(false)
+  contractorWork    Boolean      @default(false)
+  isActive          Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  workerGroups     TaskWorkerGroup[]
+  equipmentLinks   TaskEquipment[]
+  hazardScreenings TaskHazardScreening[]
+
+  @@unique([activityId, name])
+  @@index([activityId])
+}
+
+model TaskWorkerGroup {
+  taskId  String
+  task    SiteTask               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  groupId String
+  group   HomogeneousWorkerGroup @relation(fields: [groupId], references: [id])
+
+  @@id([taskId, groupId])
+  @@index([groupId])
+}
+
+model TaskHazardScreening {
+  id                   String   @id @default(cuid())
+  taskId               String
+  task                 SiteTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  hazardCode           String
+  isApplicable         Boolean
+  justification        String?
+  assessorName         String?
+  screenedAt           DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Risk assessment fields (P × D = R)
+  probability          Int?
+  damage               Int?
+  riskLevel            Int?
+  riskClass            String?
+  mitigationMeasures   String?
+  residualProbability  Int?
+  residualDamage       Int?
+  residualRiskLevel    Int?
+  residualRiskClass    String?
+
+  correctiveActions    CorrectiveAction[]
+  incidents            SiteIncident[]
+
+  @@unique([taskId, hazardCode])
+  @@index([taskId])
+}
+
+model SiteEquipment {
+  id                        String    @id @default(cuid())
+  organizationId            String
+  siteId                    String
+  site                      Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name                      String
+  category                  String
+  serialNumber              String?
+  manufacturer              String?
+  model                     String?
+  certificationRef          String?
+  inspectionFrequencyMonths Int?
+  lastInspectionDate        DateTime?
+  nextInspectionDate        DateTime?
+  notes                     String?
+  isActive                  Boolean   @default(true)
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  taskLinks TaskEquipment[]
+
+  @@index([organizationId])
+  @@index([siteId])
+}
+
+model TaskEquipment {
+  taskId      String
+  task        SiteTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  equipmentId String
+  equipment   SiteEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, equipmentId])
+  @@index([equipmentId])
+}
+
+// ─── CORRECTIVE ACTIONS ───────────────────────────────────────────────────────
+
+model CorrectiveAction {
+  id             String                   @id @default(cuid())
+  organizationId String
+  siteId         String
+  hazardId       String?
+
+  title            String
+  description      String?
+  priority         CorrectiveActionPriority
+  status           CorrectiveActionStatus   @default(OPEN)
+
+  assignedToId     String?
+  dueDate          DateTime?
+  completedDate    DateTime?
+  verificationNote String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  site         Site                  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  organization Organization          @relation(fields: [organizationId], references: [id])
+  hazard       TaskHazardScreening?  @relation(fields: [hazardId], references: [id], onDelete: SetNull)
+  assignedTo   Employee?             @relation("correctiveActionAssignee", fields: [assignedToId], references: [id])
+
+  @@index([siteId])
+  @@index([organizationId])
+  @@index([status])
+}
+
+// ─── TRAINING & COMPETENCY RECORDS ───────────────────────────────────────────
+
+model SiteTrainingRecord {
+  id             String               @id @default(cuid())
+  organizationId String
+  siteId         String
+  workerGroupId  String?
+  employeeId     String?
+
+  trainingType   String
+  description    String?
+  trainerName    String?
+  trainingDate   DateTime
+  expiryDate     DateTime?
+  certificateRef String?
+  status         TrainingRecordStatus @default(VALID)
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  site         Site                    @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  organization Organization            @relation(fields: [organizationId], references: [id])
+  workerGroup  HomogeneousWorkerGroup? @relation(fields: [workerGroupId], references: [id], onDelete: SetNull)
+  employee     Employee?               @relation("trainingRecordEmployee", fields: [employeeId], references: [id])
+
+  @@index([siteId])
+  @@index([organizationId])
+  @@index([status])
+}
+
+// ─── INCIDENT & NEAR-MISS REGISTER ───────────────────────────────────────────
+
+model SiteIncident {
+  id             String           @id @default(cuid())
+  organizationId String
+  siteId         String
+
+  incidentType    IncidentType
+  severity        IncidentSeverity
+  status          IncidentStatus   @default(REPORTED)
+
+  incidentDate    DateTime
+  reportedDate    DateTime         @default(now())
+  title           String
+  description     String?
+  location        String?
+  injuredPerson   String?
+  witnesses       String?
+  immediateAction String?
+  rootCause       String?
+
+  hazardId    String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  site         Site                 @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  hazard       TaskHazardScreening? @relation(fields: [hazardId], references: [id], onDelete: SetNull)
+
+  @@index([siteId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([incidentDate])
+}
+
+// ─── CONTRACTOR MANAGEMENT ────────────────────────────────────────────────────
+
+model Contractor {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  siteId         String
+  site           Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  companyName  String
+  vatNumber    String?
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  workScope    String?
+  startDate    DateTime?
+  endDate      DateTime?
+  isActive     Boolean  @default(true)
+
+  workers ContractorWorker[]
+  permits ContractorAccessPermit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, siteId])
+}
+
+model ContractorWorker {
+  id           String     @id @default(cuid())
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  fullName       String
+  role           String?
+  idNumber       String?
+  inductionDate  DateTime?
+  inductionValid Boolean   @default(false)
+  certifications String?
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contractorId])
+}
+
+model ContractorAccessPermit {
+  id           String     @id @default(cuid())
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  permitType   String
+  permitNumber String?
+  issuedDate   DateTime
+  expiryDate   DateTime
+  issuedById   String?
+  workArea     String?
+  conditions   String?
+  status       String    @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contractorId])
+  @@index([expiryDate])
 }

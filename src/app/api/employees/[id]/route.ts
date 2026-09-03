@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma/client'
 import { success, error } from '@/lib/errors/api-response'
 import { logActivity } from '@/lib/system-log'
+import { getActiveBranchId } from '@/lib/auth/active-branch'
 import { z } from 'zod'
 
 const updateSchema = z.object({
@@ -28,6 +29,16 @@ async function getAuthProfile() {
   return prisma.profile.findUnique({ where: { id: user.id } })
 }
 
+/** Returns true when the caller's active branch does not match the employee's branch. */
+async function isOutsideActiveBranch(
+  orgId: string | null,
+  employeeBranchId: string | null | undefined,
+): Promise<boolean> {
+  if (!orgId) return false
+  const activeBranchId = await getActiveBranchId(orgId)
+  return activeBranchId !== null && employeeBranchId !== activeBranchId
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -50,11 +61,21 @@ export async function GET(
       include: {
         salaryStructure: true,
         leaveBalances: { include: { leaveType: true } },
-        orgUnit: { include: { level: true, parent: { select: { id: true, name: true } } } },
+        orgUnit: {
+          include: {
+            level: true,
+            parent: { select: { id: true, name: true } },
+          },
+        },
       },
     })
 
     if (!employee) return error('NOT_FOUND', 'Employee not found', 404)
+
+    if (await isOutsideActiveBranch(orgId, employee.orgUnit?.branchId)) {
+      return error('NOT_FOUND', 'Employee not found', 404)
+    }
+
     return success({ employee })
   } catch (e) {
     console.error('[GET /api/employees/[id]]', e)
@@ -81,8 +102,13 @@ export async function PATCH(
 
     const employee = await prisma.employee.findFirst({
       where: { id, organizationId: profile.organizationId ?? undefined },
+      include: { orgUnit: { select: { branchId: true } } },
     })
     if (!employee) return error('NOT_FOUND', 'Employee not found', 404)
+
+    if (await isOutsideActiveBranch(profile.organizationId, employee.orgUnit?.branchId)) {
+      return error('NOT_FOUND', 'Employee not found', 404)
+    }
 
     // Recompute fullName if any name part is being updated
     const hasNameChange = firstName !== undefined || secondName !== undefined
