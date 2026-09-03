@@ -691,7 +691,7 @@
     "signIn": "Masuk",
     "noAccount": "Belum punya akun?",
     "contactAdmin": "Hubungi administrator Anda",
-    "orgLoadError": "Tidak dapat memuat perusahaan. Silakan coba lagi.",
+    "orgLoadError": "Layanan tidak tersedia. Silakan hubungi administrator Anda.",
     "retry": "Coba Lagi"
   },
   "sites": {

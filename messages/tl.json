@@ -691,7 +691,7 @@
     "signIn": "Mag-sign in",
     "noAccount": "Wala kang account?",
     "contactAdmin": "Makipag-ugnayan sa iyong administrator",
-    "orgLoadError": "Hindi ma-load ang mga kumpanya. Subukang muli.",
+    "orgLoadError": "Hindi available ang serbisyo. Makipag-ugnayan sa iyong administrator.",
     "retry": "Subukang Muli"
   },
   "sites": {

@@ -850,7 +850,7 @@
     "signIn": "Sign in",
     "noAccount": "Don't have an account?",
     "contactAdmin": "Contact your administrator",
-    "orgLoadError": "Could not load companies. Please retry.",
+    "orgLoadError": "Service unavailable. Please contact your administrator.",
     "retry": "Retry"
   },
   "countries": {

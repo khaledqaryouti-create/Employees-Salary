@@ -691,7 +691,7 @@
     "signIn": "Accedi",
     "noAccount": "Non hai un account?",
     "contactAdmin": "Contatta il tuo amministratore",
-    "orgLoadError": "Impossibile caricare le aziende. Riprovare.",
+    "orgLoadError": "Servizio non disponibile. Contattare l'amministratore.",
     "retry": "Riprova"
   },
   "sites": {
